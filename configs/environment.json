@@ -1,6 +1,6 @@
 {
     "data_base_dir": "./data/raw",
-    "embedding_base_dir": "./data/processed/embeddings",
+    "embedding_base_dir": "./data/processed/embeddings_v2",
     "json_data_list": "./data/splits/dataset.json",
     "model_dir": "./outputs/models_v2",
     "model_filename": "diff_unet.pt",
