@@ -129,7 +129,7 @@ def encode_dataset(
     """
     Encoda l'intero dataset (train, val e test) e salva gli embedding
     Struttura output:
-    data/processed/embeddings/
+    data/processed/embeddings_v2/
         hc_adni_brain_mask/
             file1_emb.npy
             ...
@@ -214,7 +214,7 @@ def main():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="outputs/models/autoencoder_best.pt",
+        default="outputs/models_v2/autoencoder_best.pt",
         help="Path al checkpoint del VAE",
     )
     parser.add_argument(
@@ -226,7 +226,7 @@ def main():
     parser.add_argument(
         "--embedding_dir",
         type=str,
-        default="data/processed/embeddings",
+        default="data/processed/embeddings_v2",
         help="Cartella dove salvare gli embedding",
     )
     args=parser.parse_args()
