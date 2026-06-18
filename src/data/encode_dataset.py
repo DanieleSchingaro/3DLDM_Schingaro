@@ -40,7 +40,7 @@ def load_autoencoder(checkpoint_path:str, device:torch.device)->AutoencoderKlMai
         in_channels=1,
         out_channels=1,
         latent_channels=4,
-        num_channels=(64,128,256),
+        num_channels=(128,256,512),
         num_res_blocks=(2,2,2),
         norm_num_groups=32,
         norm_eps=1e-6,
