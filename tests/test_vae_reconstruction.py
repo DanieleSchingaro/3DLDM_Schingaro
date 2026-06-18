@@ -5,7 +5,7 @@ Verifica visiva e quantitativa delle ricostruzioni del VAE trainato.
 Carica autoencoder_best.pt e ricostruisce alcuni volumi del validation set,
 e salva confronti input/output in formato PNG + metriche SSIM, L1 e PSNR.
 Usa sliding_window_inference, come MAISI, per gestire il volume di 256^3.
-Esegui con: python3 -m tests.test_vae_reconstruction.py
+Esegui con: python3 -m tests.test_vae_reconstruction
 """
 
 import os
