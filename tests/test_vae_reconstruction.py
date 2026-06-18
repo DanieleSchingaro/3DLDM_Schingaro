@@ -22,7 +22,7 @@ from src.data.dataset import load_splits
 #CONFIG
 CHECKPOINT_PATH="outputs/models_v2/autoencoder_best.pt"
 SPLITS_PATH="data/splits/dataset.json"
-OUTPUT_DIR="outputs/generated/reconstructions"
+OUTPUT_DIR="outputs/generated/reconstructions_v2"
 N_VOLUMES=4
 ROI_SIZE=(128,128,128) #finestra sliding_window
 SW_BATCH_SIZE=1
