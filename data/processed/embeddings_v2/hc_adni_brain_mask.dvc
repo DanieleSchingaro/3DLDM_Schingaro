@@ -1,0 +1,6 @@
+outs:
+- md5: 949eda4673ff3066f78b03b545f8ac3f.dir
+  size: 1338183308
+  nfiles: 319
+  hash: md5
+  path: hc_adni_brain_mask

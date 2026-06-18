@@ -15,6 +15,12 @@ __pycache__/
 /data/processed/embeddings/hc_oasis2_brain_mask
 /data/processed/embeddings/hc_oasis3_brain_mask
 /data/processed/embeddings/hc_ppmi_brain_mask
+/data/processed/embeddings_v2/hc_adni_brain_mask
+/data/processed/embeddings_v2/hc_nifd_brain_mask
+/data/processed/embeddings_v2/hc_oasis1_brain_mask
+/data/processed/embeddings_v2/hc_oasis2_brain_mask
+/data/processed/embeddings_v2/hc_oasis3_brain_mask
+/data/processed/embeddings_v2/hc_ppmi_brain_mask
 *.pth
 *.pt
 logs/
