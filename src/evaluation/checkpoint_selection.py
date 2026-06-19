@@ -41,7 +41,7 @@ def load_autoencoder(config_net, ckpt_path, device):
     ae=config_net["autoencoder_def"]
     net=AutoencoderKlMaisi(
         spatial_dims=3, in_channels=1, out_channels=1, latent_channels=4,
-        num_channels=ae.get("num_channels", [64, 128, 256]),
+        num_channels=ae.get("num_channels", [128, 256, 512]),
         num_res_blocks=ae.get("num_res_blocks", [2, 2, 2]),
         norm_num_groups=ae.get("norm_num_groups", 32),
         norm_eps=ae.get("norm_eps", 1e-6),
@@ -145,8 +145,8 @@ def main():
     ap.add_argument("--config", type=str, default="configs/config_diff_model.json")
     ap.add_argument("--network", type=str, default="configs/config_network.json")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
-    ap.add_argument("--models_dir", type=str, default="outputs/models")
-    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection",
+    ap.add_argument("--models_dir", type=str, default="outputs/models_v2")
+    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v2",
                     help="dove salvare le immagini temporanee e il JSON dei risultati")
     ap.add_argument("--n_samples", type=int, default=100)
     ap.add_argument("--epochs", type=str, default="100,200,300,400,500,600,700,800,900,1000",
@@ -155,7 +155,7 @@ def main():
  
     device="cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(args.work_dir, exist_ok=True)
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint.json")
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v2.json")
  
     # carica risultati gia' presenti (ripresa incrementale)
     results={}
@@ -178,7 +178,7 @@ def main():
     latent_shape=(latent_channels, output_size[0] // 4, output_size[1] // 4, output_size[2] // 4)
  
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models/autoencoder_best.pt")
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v2/autoencoder_best.pt")
  
     # il VAE e' lo stesso per tutti i checkpoint LDM: caricalo UNA volta
     print(f"Carico VAE da {ae_ckpt}")

@@ -7,7 +7,7 @@ il checkpoint migliore (FID medio minimo) e la zona di saturazione.
 
 Uso: 
     python3 -m src.evaluation.plot_fid_curve
-    python3 -m src.evaluation.plot_fid_curve --json outputs/checkpoint_selection/fid_by_checkpoint.json
+    python3 -m src.evaluation.plot_fid_curve --json outputs/checkpoint_selection/fid_by_checkpoint_v2.json
 """
 
 import os 
@@ -96,8 +96,8 @@ def plot_fid_curve(json_path, save_path=None, show_planes=True, title=None):
 
 def main():
     ap=argparse.ArgumentParser(description="Curva FID-vs-epoca")
-    ap.add_argument("--json", type=str, default="outputs/checkpoint_selection/fid_by_checkpoint.json")
-    ap.add_argument("--out", type=str, default="outputs/metrics/fid_vs_epoch.png")
+    ap.add_argument("--json", type=str, default="outputs/checkpoint_selection/fid_by_checkpoint_v2.json")
+    ap.add_argument("--out", type=str, default="outputs/metrics/fid_vs_epoch_v2.png")
     ap.add_argument("--no_planes", action="store_true", help="mostra solo la media")
     args=ap.parse_args()
  
