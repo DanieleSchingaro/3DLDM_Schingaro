@@ -20,9 +20,9 @@ from src.data.transforms import get_encoding_transforms
 from src.data.dataset import load_splits
 
 #CONFIG
-CHECKPOINT_PATH="outputs/models_v2/autoencoder_best.pt"
+CHECKPOINT_PATH="outputs/models_v3/autoencoder_best.pt"
 SPLITS_PATH="data/splits/dataset.json"
-OUTPUT_DIR="outputs/generated/reconstructions_v2"
+OUTPUT_DIR="outputs/generated/reconstructions_v3"
 N_VOLUMES=4
 ROI_SIZE=(128,128,128) #finestra sliding_window
 SW_BATCH_SIZE=1
