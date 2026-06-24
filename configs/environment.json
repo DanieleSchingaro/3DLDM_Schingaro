@@ -1,14 +1,14 @@
 {
     "data_base_dir": "./data/raw",
-    "embedding_base_dir": "./data/processed/embeddings_v2",
+    "embedding_base_dir": "./data/processed/embeddings_v3",
     "json_data_list": "./data/splits/dataset.json",
-    "model_dir": "./outputs/models_v2",
+    "model_dir": "./outputs/models_v3",
     "model_filename": "diff_unet.pt",
     "output_dir": "./outputs/generated",
     "output_prefix": "ldm_brain_hc",
-    "trained_autoencoder_path": "./outputs/models_v2/autoencoder_best.pt",
-    "trained_discriminator_path": "./outputs/models_v2/discriminator_best.pt",
-    "trained_diffusion_path": "./outputs/models_v2/diff_unet_best.pt",
+    "trained_autoencoder_path": "./outputs/models_v3/autoencoder_best.pt",
+    "trained_discriminator_path": "./outputs/models_v3/discriminator_best.pt",
+    "trained_diffusion_path": "./outputs/models_v3/diff_unet_best.pt",
     "tfevent_path": "./outputs/tfevent",
     "finetune": false
 }
