@@ -462,7 +462,7 @@ def save_learning_curves(
 
     #salvataggio grafico
     os.makedirs(save_dir, exist_ok=True)
-    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v2.png")
+    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v3.png")
     plt.savefig(curve_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -555,16 +555,16 @@ def main():
         #optimizer
         optimizer_g, optimizer_d=setup_optimizers(autoencoder, discriminator, lr)
 
-        #warmup del learning rate (come MAISI): il modello grande (83M) si
-        #destabilizza col lr pieno fin dall'epoca 0. Si parte a lr*0.01 per le
-        #prime 10 epoche, poi lr*0.1 fino a epoca 20, poi lr pieno.
+        #warmup LINEARE del learning rate: il modello grande (83M) si
+        #destabilizza col lr pieno fin dall'epoca 0. Invece di gradini bruschi
+        #(che causavano scossoni nella loss a epoca 10 e 20), si usa una rampa
+        #continua da lr*0.01 a lr pieno nelle prime warmup_len epoche.
+        warmup_len=20
+        warmup_start=0.01
         def warmup_rule(epoch):
-            if epoch < 10:
-                return 0.01
-            elif epoch < 20:
-                return 0.1
-            else:
+            if epoch>=warmup_len:
                 return 1.0
+            return warmup_start+(1.0-warmup_start)*(epoch/warmup_len)
 
         scheduler_g=LambdaLR(optimizer_g, lr_lambda=warmup_rule)
 
