@@ -214,7 +214,7 @@ def main():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="outputs/models_v2/autoencoder_best.pt",
+        default="outputs/models_v3/autoencoder_best.pt",
         help="Path al checkpoint del VAE",
     )
     parser.add_argument(
@@ -226,7 +226,7 @@ def main():
     parser.add_argument(
         "--embedding_dir",
         type=str,
-        default="data/processed/embeddings_v2",
+        default="data/processed/embeddings_v3",
         help="Cartella dove salvare gli embedding",
     )
     args=parser.parse_args()
