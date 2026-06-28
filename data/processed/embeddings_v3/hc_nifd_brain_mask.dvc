@@ -1,0 +1,6 @@
+outs:
+- md5: dc2d13b14d1e92da140487cb7cba58ac.dir
+  size: 495001976
+  nfiles: 118
+  hash: md5
+  path: hc_nifd_brain_mask

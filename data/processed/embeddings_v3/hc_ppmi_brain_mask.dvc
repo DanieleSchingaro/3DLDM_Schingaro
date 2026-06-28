@@ -1,0 +1,6 @@
+outs:
+- md5: da888782313dcf2509f835565780d941.dir
+  size: 834791468
+  nfiles: 199
+  hash: md5
+  path: hc_ppmi_brain_mask
