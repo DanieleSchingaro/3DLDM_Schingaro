@@ -21,7 +21,7 @@ Esempi:
     python3 -m src.evaluation.eval --real_source test
     python3 -m src.evaluation.eval --real_source all --mmd_max_pairs 100
  
-Risultati in outputs/metrics/eval_<real_source>_v2.json
+Risultati in outputs/metrics/eval_<real_source>_v3.json
 """
 import os 
 import json 
@@ -76,7 +76,7 @@ def build_real_stream(splits_path:str, real_source:str):
 
 def main():
     parser = argparse.ArgumentParser(description="Valutazione MRI HC sintetiche (FID/MMD/MS-SSIM)")
-    parser.add_argument("--synth_dir", type=str, default="data/synthetic_v2")
+    parser.add_argument("--synth_dir", type=str, default="data/synthetic_v3")
     parser.add_argument("--splits", type=str, default="data/splits/dataset.json")
     parser.add_argument("--real_source", type=str, default="test", choices=["test", "all"])
     parser.add_argument("--out_dir", type=str, default="outputs/metrics")
@@ -149,7 +149,7 @@ def main():
 
     #salvataggio
     os.makedirs(args.out_dir, exist_ok=True)
-    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_v2.json")
+    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_v3.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nRisultati salvati in {out_path}")

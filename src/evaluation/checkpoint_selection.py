@@ -262,7 +262,7 @@ def worker(rank, n_gpus, args, all_epochs, lock):
     latent_shape=(latent_channels, output_size[0] // 4, output_size[1] // 4, output_size[2] // 4)
 
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v2/autoencoder_best.pt")
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v3/autoencoder_best.pt")
 
     print(f"[{device}] carico VAE da {ae_ckpt}")
     autoencoder=load_autoencoder(config_net, ae_ckpt, device)
@@ -283,7 +283,7 @@ def worker(rank, n_gpus, args, all_epochs, lock):
     real_stream=VolumeStream(test_items, _load_real)
     print(f"[{device}] test set reale: {len(real_stream)} volumi")
 
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v2.json")
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v3.json")
 
     for ep in my_epochs:
         evaluate_one_checkpoint(
@@ -298,7 +298,7 @@ def rank_and_plot(args, all_epochs):
     Legge il JSON unico finale, stampa la classifica e genera il grafico
     FID-vs-epoca. Eseguito dal processo principale dopo che i worker hanno finito.
     """
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v2.json")
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v3.json")
     results=_read_results(results_path)
     if not results:
         print("Nessun risultato trovato.")
@@ -330,7 +330,7 @@ def rank_and_plot(args, all_epochs):
         plt.scatter([best_r["epoch"]], [best_r["fid_avg"]], color="C3", zorder=5,
                     label=f"best: ep{best_r['epoch']} (FID {best_r['fid_avg']:.2f})")
         plt.legend()
-        plot_path=os.path.join(args.work_dir, "fid_vs_epoch_v2.png")
+        plot_path=os.path.join(args.work_dir, "fid_vs_epoch_v3.png")
         plt.savefig(plot_path, dpi=150, bbox_inches="tight")
         plt.close()
         print(f"Grafico salvato in {plot_path}")
@@ -343,8 +343,8 @@ def main():
     ap.add_argument("--config", type=str, default="configs/config_diff_model.json")
     ap.add_argument("--network", type=str, default="configs/config_network.json")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
-    ap.add_argument("--models_dir", type=str, default="outputs/models_v2")
-    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v2",
+    ap.add_argument("--models_dir", type=str, default="outputs/models_v3")
+    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v3",
                     help="dove salvare le immagini temporanee e il JSON dei risultati")
     ap.add_argument("--n_samples", type=int, default=100)
     ap.add_argument("--epochs", type=str, default="100,200,300,400,500,600,700,800,900,1000",
