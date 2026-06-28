@@ -235,9 +235,9 @@ def main():
     parser.add_argument("--config", type=str, default="configs/config_diff_model.json")
     parser.add_argument("--network", type=str, default="configs/config_network.json")
     parser.add_argument("--n_samples", type=int, default=100, help="numero totale di campioni da generare")
-    parser.add_argument("--out_dir", type=str, default="data/synthetic_v2",
+    parser.add_argument("--out_dir", type=str, default="data/synthetic_v3",
                         help="cartella dei volumi .nii.gz sintetici")
-    parser.add_argument("--png_dir", type=str, default="outputs/generated/synthetic_v2",
+    parser.add_argument("--png_dir", type=str, default="outputs/generated/synthetic_v3",
                         help="cartella dei PNG di anteprima (generati a fine run dal rank 0)")
     parser.add_argument("--no_png", action="store_true",
                         help="se presente, NON genera i PNG di anteprima")
@@ -270,8 +270,8 @@ def main():
     base_seed=infer_cfg.get("random_seed", 42)
  
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v2/autoencoder_best.pt")
-    ldm_ckpt=os.path.join(paths.get("model_dir", "./outputs/models_v2"),
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v3/autoencoder_best.pt")
+    ldm_ckpt=os.path.join(paths.get("model_dir", "./outputs/models_v3"),
                             paths.get("model_filename", "ldm_unet_best.pt"))
  
     latent_channels=config_net.get("latent_channels", 4)
