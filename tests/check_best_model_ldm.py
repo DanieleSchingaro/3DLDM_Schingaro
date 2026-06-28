@@ -17,7 +17,7 @@ import mlflow
 from pathlib import Path 
 
 #checkpoint 
-checkpoint_path=Path("outputs/models/ldm_unet_best.pt")
+checkpoint_path=Path("outputs/models_v3/ldm_unet_best.pt")
 if not checkpoint_path.exists():
     print(f"File non trovato: {checkpoint_path}")
     exit(1)
