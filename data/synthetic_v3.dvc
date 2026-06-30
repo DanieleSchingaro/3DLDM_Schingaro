@@ -1,0 +1,6 @@
+outs:
+- md5: 32cf30f7f4cc406b3f59ab7d55cbe352.dir
+  size: 2594421370
+  nfiles: 100
+  hash: md5
+  path: synthetic_v3
