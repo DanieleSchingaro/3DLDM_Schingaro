@@ -1,3 +1,4 @@
+#!/bin/bash
 #SBATCH --job-name=train_vae
 #SBATCH --output=logs/train_vae_%j.log
 #SBATCH --error=logs/train_vae_%j.err
