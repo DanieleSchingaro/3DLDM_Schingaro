@@ -70,7 +70,7 @@ def plot_fid_curve(json_path, save_path=None, show_planes=True, title=None):
                 fontsize=9, color="#d62728",
                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.3))
     
-    ax.set_xlabel("Epoca di traning (LDM)", fontsize=11)
+    ax.set_xlabel("Epoca di training (LDM)", fontsize=11)
     ax.set_ylabel("FID 2.5D (più basso=meglio)", fontsize=11)
     ax.set_title(title or "Evoluzione del FID durante il training dell'LDM",
                  fontsize=12, fontweight="bold")
