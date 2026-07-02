@@ -9,7 +9,7 @@ import mlflow
 from pathlib import Path 
 
 #Checkpoint
-checkpoint_path=Path("outputs/models_v3/autoencoder_best.pt")
+checkpoint_path=Path("outputs/models_v4/autoencoder_best.pt")
 if not checkpoint_path.exists():
     print(f"File non trovato: {checkpoint_path}")
     exit(1)
