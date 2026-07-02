@@ -126,7 +126,7 @@ def create_ldm_dataloader(
 
 def setup_ldm_dataloaders(
     config:dict,
-    splits_path:str="data/splits/embeddings_dataset_v3.json",
+    splits_path:str="data/splits/embeddings_dataset_v4.json",
 )->tuple:
     """
     Crea i tre DataLoader (train,val,test) per il training dell'LDM.
