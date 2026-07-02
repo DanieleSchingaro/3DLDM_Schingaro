@@ -18,10 +18,10 @@
         "cfg_guidance_scale": 10
     },
     "paths": {
-        "embedding_base_dir": "./data/processed/embeddings_v3",
-        "model_dir": "./outputs/models_v3",
+        "embedding_base_dir": "./data/processed/embeddings_v4",
+        "model_dir": "./outputs/models_v4",
         "model_filename": "ldm_unet_best.pt",
-        "splits_path": "./data/splits/embeddings_dataset_v3.json",
-        "trained_autoencoder_path": "./outputs/models_v3/autoencoder_best.pt"
+        "splits_path": "./data/splits/embeddings_dataset_v4.json",
+        "trained_autoencoder_path": "./outputs/models_v4/autoencoder_best.pt"
     }
 }
