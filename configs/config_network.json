@@ -136,8 +136,9 @@
         "num_train_timesteps": 1000,
         "use_discrete_timesteps": false,
         "use_timestep_transform": true,
-        "sample_method": "uniform",
-        "scale":1.4
+        "sample_method": "logit-normal",
+        "loc":0.0,
+        "scale":1.0
     },
     "mask_generation_noise_scheduler": {
         "_target_": "monai.networks.schedulers.ddpm.DDPMScheduler",
