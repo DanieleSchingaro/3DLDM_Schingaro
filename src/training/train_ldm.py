@@ -11,8 +11,20 @@ Il modello è INCONDIZIONATO:
 Genera HC dal rumore puro.
 
 Scheduler: RFlowScheduler (rectified flow), target=images-noise
-scale_factor calcolato sul primo batch (1/std(z)) e salvato nel checkpoint,
-serve anche in sampling per de-normalizzare (approcio MAISI)
+
+MODIFICHE v4:
+    - scale_factor PER-CANALE + CENTERING: invece di uno scalare globale stimato
+      su un solo batch, si calcolano media e std PER-CANALE su TUTTO il train set.
+      Il latente viene normalizzato come (z - latent_mean) * scale_factor, con
+      broadcast su tensori [1,C,1,1,1]. Migliora il condizionamento dei 4 canali
+      per l'LDM (canali con std diverse non piu' sbilanciati) e centra il
+      bersaglio, avvicinandolo al supporto del rumore N(0,I).
+    - latent_mean SALVATO nel checkpoint: serve al sampling per de-normalizzare
+      (z/scale_factor + latent_mean) prima del decode VAE.
+    - WARMUP dell'optimizer LDM: rampa lineare iniziale del lr (lr_warmup_epochs)
+      combinata col decay polinomiale, prima assente.
+    - timestep logit-normal: NON qui, si attiva da config_network.json
+      (sample_method="logit-normal"); lo scheduler lo legge da li'.
 """
 
 import os
@@ -84,41 +96,76 @@ def setup_noise_scheduler(sched_cfg: dict)->RFlowScheduler:
     """
     Crea il RFlowScheduler con i parametri del config (MAISI-style):
     num_train_timesteps, use_discrete_timesteps, use_timesteps_transform, scale, sample_method.
+    NB: sample_method="logit-normal" (impostato in config_network.json) attiva il
+    campionamento logit-normale dei timestep; qui non serve altro.
     """
     return RFlowScheduler(
         num_train_timesteps=sched_cfg.get("num_train_timesteps", 1000),
         use_discrete_timesteps=sched_cfg.get("use_discrete_timesteps", False),
         use_timestep_transform=sched_cfg.get("use_timestep_transform", True),
-        scale=sched_cfg.get("scale", 1.4),
+        loc=sched_cfg.get("loc", 0.0),
+        scale=sched_cfg.get("scale", 1.0),
         sample_method=sched_cfg.get("sample_method", "uniform"),
     )
 
-#scale_factor (MAISI-style)
-def calculate_scale_factor(train_loader, device:torch.device)->torch.Tensor:
+#scale_factor + latent_mean PER-CANALE (v4)
+def calculate_latent_stats(train_loader, device:torch.device):
     """
-    scale_factor=1/std(z) calcolato sul primo batch.
-    Su DDP viene mediato tra i rank con all_reduce AVG.
-    Serve a normalizzare i latenti (varianza circa 1) per la diffusione,
-    e va salvato nel checkpoint per de-normalizzare in sampling.
-    """
-    check_data=first(train_loader)
-    z=check_data["latent"].to(device)
-    scale_factor=1.0/torch.std(z)
+    Calcola media e std PER-CANALE su TUTTO il train set (non su un solo batch).
+    Ritorna (latent_mean, scale_factor), entrambi tensori [1,C,1,1,1] per broadcast.
 
+    Metodo numericamente robusto e DDP-esatto:
+      - si accumulano le SOMME per-canale: sum(z), sum(z^2), e il conteggio N di
+        elementi per canale (B*X*Y*Z sommato su tutti i batch);
+      - su DDP si riducono le SOMME e il conteggio con ReduceOp.SUM (NON si mediano
+        le medie per-rank: sarebbe approssimato);
+      - da sum e sum2 si ricavano mean e var globali per-canale.
+    scale_factor = 1/std per-canale (clamp per sicurezza numerica).
+    """
+    sum_c=None      # somma per-canale       [C]
+    sumsq_c=None    # somma dei quadrati     [C]
+    count=0.0       # numero di elementi per canale (scalare, uguale per ogni canale)
+
+    for batch in train_loader:
+        z=batch["latent"].to(device)                 # [B,C,X,Y,Z]
+        c=z.shape[1]
+        # riduci su batch + dimensioni spaziali, tieni il canale
+        s=z.sum(dim=(0,2,3,4))                        # [C]
+        s2=(z*z).sum(dim=(0,2,3,4))                   # [C]
+        n=z.shape[0]*z.shape[2]*z.shape[3]*z.shape[4] # elementi per canale in questo batch
+
+        sum_c=s if sum_c is None else sum_c+s
+        sumsq_c=s2 if sumsq_c is None else sumsq_c+s2
+        count+=float(n)
+
+    # riduzione DDP ESATTA: somma dei totali + conteggio, poi calcolo
     if dist.is_initialized():
         dist.barrier()
-        dist.all_reduce(scale_factor, op=torch.distributed.ReduceOp.AVG)
+        count_t=torch.tensor([count], device=device)
+        dist.all_reduce(sum_c, op=dist.ReduceOp.SUM)
+        dist.all_reduce(sumsq_c, op=dist.ReduceOp.SUM)
+        dist.all_reduce(count_t, op=dist.ReduceOp.SUM)
+        count=count_t.item()
 
-    return scale_factor
+    mean_c=sum_c/count                                # [C]
+    var_c=sumsq_c/count-mean_c*mean_c                 # [C]
+    std_c=torch.sqrt(var_c.clamp_min(1e-8))           # [C]
+    scale_c=1.0/std_c.clamp_min(1e-8)                 # [C]
+
+    # reshape a [1,C,1,1,1] per broadcast sul latente [B,C,X,Y,Z]
+    latent_mean=mean_c.view(1, -1, 1, 1, 1)
+    scale_factor=scale_c.view(1, -1, 1, 1, 1)
+    return latent_mean, scale_factor
 
 def train_one_epoch(
     epoch,unet,train_loader,optimizer,lr_scheduler,
-    loss_pt, scaler, scale_factor, noise_scheduler,
+    loss_pt, scaler, latent_mean, scale_factor, noise_scheduler,
     device, local_rank, amp=True,
 ):
     """
     Singola epoca di training rectified flow.
-    target=images-noise (velocity lungo il patch lineare)
+    target=images-noise (velocity lungo il path lineare)
+    Normalizzazione v4 PER-CANALE + CENTERING: (z - latent_mean) * scale_factor.
     """
     unet.train()
     loss_acc=torch.zeros(2, dtype=torch.float, device=device)
@@ -132,9 +179,9 @@ def train_one_epoch(
     )
 
     for train_data in progress_bar:
-        #latente grezzo -> normalizzato con scale_factor
+        #latente grezzo -> normalizzato per-canale e centrato (v4)
         images=train_data["latent"].to(device)
-        images=images*scale_factor
+        images=(images-latent_mean)*scale_factor
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -142,6 +189,7 @@ def train_one_epoch(
             noise=torch.randn_like(images)
 
             #RFlow: timesteps campionati dallo scheduler
+            #(uniform o logit-normal a seconda di config_network.json)
             timesteps=noise_scheduler.sample_timesteps(images)
 
             #aggiunge rumore lungo il path lineare
@@ -181,19 +229,20 @@ def train_one_epoch(
 
 #Validazione
 @torch.no_grad() #disattiva il calcolo dei gradienti
-def validate(unet, val_loader, loss_pt, scale_factor, noise_scheduler, device, amp=True):
+def validate(unet, val_loader, loss_pt, latent_mean, scale_factor, noise_scheduler, device, amp=True):
     """
     Loss di validazione (stesso obiettivo di rectified flow, senza backward)
     NB: per i modelli di diffusione la val_loss e' un indicatore debole della
     qualita' di generazione. La valutazione vera (FID, MMD, MS-SSIM) si fa sui
     campioni generati in eval.py. Qui serve solo a monitorare l'overfitting.
+    Usa la stessa normalizzazione v4 per-canale + centering del training.
     """
     unet.eval()
     loss_acc=torch.zeros(2, dtype=torch.float, device=device)
 
     for val_data in val_loader:
         images=val_data["latent"].to(device)
-        images=images*scale_factor
+        images=(images-latent_mean)*scale_factor
 
         with autocast("cuda", enabled=amp):
             noise=torch.randn_like(images)
@@ -214,10 +263,11 @@ def validate(unet, val_loader, loss_pt, scale_factor, noise_scheduler, device, a
     return (loss_acc[0]/loss_acc[1]).item()
 
 #Checkpoint
-def save_checkpoint(epoch, unet, loss, scale_factor, num_train_timesteps, save_path):
+def save_checkpoint(epoch, unet, loss, latent_mean, scale_factor, num_train_timesteps, save_path):
     """
-    Salva il checkpoint. scale_factor e num_train_timesteps inclusi: servono
-    entrambi al sampling per ricostruire lo scheduler e de-normalizzare.
+    Salva il checkpoint. latent_mean, scale_factor e num_train_timesteps inclusi:
+    servono tutti al sampling per ricostruire lo scheduler e de-normalizzare
+    (z/scale_factor + latent_mean) prima del decode VAE.
     """
     unet_state=unet.module.state_dict() if dist.is_initialized() else unet.state_dict()
     torch.save(
@@ -225,7 +275,8 @@ def save_checkpoint(epoch, unet, loss, scale_factor, num_train_timesteps, save_p
             "epoch":epoch+1,
             "loss":loss,
             "num_train_timesteps":num_train_timesteps,
-            "scale_factor":scale_factor,
+            "latent_mean":latent_mean,          # v4: media per-canale [1,C,1,1,1]
+            "scale_factor":scale_factor,        # v4: scale per-canale [1,C,1,1,1]
             "unet_state_dict":unet_state,
         },
         save_path,
@@ -261,6 +312,7 @@ def main():
     val_interval=train_cfg.get("val_interval", 50)     # default 50 se assente
     save_interval=train_cfg.get("save_interval", 100)  # checkpoint periodici
     amp=train_cfg.get("amp", True)
+    lr_warmup_epochs=train_cfg.get("lr_warmup_epochs", 50)  # v4: warmup optimizer LDM
 
      #path (config_diff_model["paths"])
     paths=config["paths"]
@@ -283,20 +335,31 @@ def main():
     #Unet (config_network["diffusion_unet_def"])
     unet=setup_unet(config_net["diffusion_unet_def"], device, local_rank)
 
-    #scale_factor (MAISI) su primo batch
-    scale_factor=calculate_scale_factor(train_loader, device)
+    #v4: media + scale PER-CANALE su TUTTO il train set
+    latent_mean, scale_factor=calculate_latent_stats(train_loader, device)
     if is_main:
-        print(f"scale_factor={scale_factor.item():.5f}")
+        print(f"latent_mean per-canale: {latent_mean.flatten().tolist()}")
+        print(f"scale_factor per-canale: {scale_factor.flatten().tolist()}")
     
     #scheduler RFlow
     noise_scheduler=setup_noise_scheduler(sched_cfg)
 
-    #optimizer+lr scheduler (MAISI: Adam+PolynomialLR power 2.0)
+    #optimizer (MAISI: Adam)
     optimizer=torch.optim.Adam(params=unet.parameters(), lr=lr)
     total_steps=n_epochs*len(train_loader)
-    lr_scheduler=torch.optim.lr_scheduler.PolynomialLR(
-        optimizer, total_iters=total_steps, power=2.0,
-    )
+    warmup_steps=lr_warmup_epochs*len(train_loader)
+
+    #v4: WARMUP lineare + decay polinomiale (power 2.0).
+    #Prima: solo PolynomialLR dal primo step (nessun warmup).
+    #Ora: rampa lineare da ~0 a lr nei primi warmup_steps, poi decay poly fino a 0.
+    def lr_lambda(step):
+        if step<warmup_steps:
+            return float(step)/float(max(1, warmup_steps))
+        #decay polinomiale sui restanti step (coerente con MAISI, power 2.0)
+        progress=float(step-warmup_steps)/float(max(1, total_steps-warmup_steps))
+        progress=min(1.0, progress)
+        return (1.0-progress)**2.0
+    lr_scheduler=torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
 
     loss_pt=torch.nn.L1Loss()
     scaler=GradScaler("cuda", enabled=amp)
@@ -307,7 +370,7 @@ def main():
     for epoch in range(n_epochs):
         train_loss=train_one_epoch(
             epoch, unet, train_loader, optimizer, lr_scheduler,
-            loss_pt, scaler, scale_factor, noise_scheduler,
+            loss_pt, scaler, latent_mean, scale_factor, noise_scheduler,
             device, local_rank, amp=amp,
         )
 
@@ -318,21 +381,21 @@ def main():
             mlflow.log_metric("lr", current_lr, step=epoch)
             #salva sempre l'ultimo
             save_checkpoint(
-                epoch, unet, train_loss, scale_factor, num_train_timesteps,
+                epoch, unet, train_loss, latent_mean, scale_factor, num_train_timesteps,
                 os.path.join(save_dir, "ldm_unet_last.pt"),
             )
 
             #checkpoint periodico (per scegliere poi il best con FID, non con val_loss)
             if (epoch+1)%save_interval==0:
                 save_checkpoint(
-                    epoch, unet, train_loss, scale_factor, num_train_timesteps,
+                    epoch, unet, train_loss, latent_mean, scale_factor, num_train_timesteps,
                     os.path.join(save_dir, f"ldm_unet_epoch{epoch+1}.pt"),
                 )
         
         # validazione periodica (monitoraggio overfitting)
         if (epoch+1) % val_interval==0:
             val_loss=validate(
-                unet, val_loader, loss_pt, scale_factor, noise_scheduler, device, amp=amp,
+                unet, val_loader, loss_pt, latent_mean, scale_factor, noise_scheduler, device, amp=amp,
             )
             if is_main:
                 print(f"  -> val_loss: {val_loss:.5f}")
@@ -340,7 +403,7 @@ def main():
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
                     save_checkpoint(
-                        epoch, unet, val_loss, scale_factor, num_train_timesteps,
+                        epoch, unet, val_loss, latent_mean, scale_factor, num_train_timesteps,
                         os.path.join(save_dir, "ldm_unet_best.pt"),
                     )
                     print(f"  -> nuovo best (val_loss={val_loss:.5f}), salvato ldm_unet_best.pt")
