@@ -1,27 +1,37 @@
 """
-SELEZIONE DEL CHECKPOINT LDM MIGLIORE VIA FID  (versione MULTI-GPU)
+SELEZIONE DEL CHECKPOINT LDM MIGLIORE VIA FID  (versione MULTI-GPU, v4)
 
-Per i modelli di diffusione la val_loss NON predice la qualita' di generazione:
-il checkpoint con val_loss minima non e' necessariamente quello che genera le
-immagini migliori. Questo script confronta piu' checkpoint LDM in modo oggettivo:
+Per i modelli di diffusione la val_loss NON predice la qualita' di generazione.
+Questo script confronta piu' checkpoint LDM in modo oggettivo, in DUE fasi:
 
-  per ogni checkpoint ldm_unet_epoch{N}.pt:
-    1. genera N_SAMPLES immagini sintetiche (default 100) in una cartella dedicata
-    2. calcola il FID 2.5D di quelle immagini vs il test set reale
-  alla fine: classifica i checkpoint per FID, salva un UNICO JSON con la curva
-  FID-vs-epoca e genera un grafico (utile come figura per la tesi).
+  FASE 1 - selezione grezza (SENZA autoguidance):
+    per ogni checkpoint ldm_unet_epoch{N}.pt genera N_SAMPLES immagini e calcola
+    il FID 2.5D vs il test set reale. Scrive fid_by_checkpoint_v4.json e produce
+    la curva FID-vs-epoca (via plot_fid_curve.py). Serve a trovare l'ORDINAMENTO
+    intrinseco dei checkpoint (quale epoca genera meglio).
 
-MULTI-GPU: i checkpoint vengono distribuiti su tutte le GPU disponibili (una
-sola istanza dello script, un solo comando). Ogni GPU lavora sui propri
-checkpoint in modo indipendente. Tutti i processi scrivono lo STESSO file
-fid_by_checkpoint_v2.json: per evitare corruzione/race condition la scrittura e'
-serializzata con un lock condiviso (read-modify-write atomico).
+  FASE 2 - raffinamento dei top-K (CON autoguidance):
+    prende i K checkpoint migliori dalla fase 1 e li rivaluta applicando
+    l'autoguidance (v = v_bad + w*(v_good - v_bad)). Il 'bad' e' derivato per
+    ciascun candidato come il checkpoint disponibile piu' vicino al ~30% della
+    sua epoca; se non esiste un bad valido (candidato troppo precoce), quel
+    candidato viene valutato senza guida e marcato autoguidance=false.
+    Scrive fid_by_checkpoint_v4_refined.json e un grafico a BARRE che confronta,
+    per ogni top-K, il FID senza guida (fase 1) vs con guida (fase 2).
 
-Lancio (usa TUTTE le GPU automaticamente, un comando solo):
-    python3 -m src.evaluation.checkpoint_selection --n_samples 100
+Motivazione metodologica: la selezione grezza serve solo a ordinare i checkpoint,
+per cui l'autoguidance (costosa e circolare) non e' necessaria. Il FID finale
+"vero" della tesi lo calcola eval.py sulle immagini di sample.py, che usano
+l'autoguidance. Il raffinamento dei top-K e' una verifica extra che l'ordine non
+cambi sotto autoguidance.
 
-Per limitare il numero di GPU (es. se la RAM e' poca):
-    python3 -m src.evaluation.checkpoint_selection --n_samples 100 --n_gpus 2
+MULTI-GPU: i checkpoint sono distribuiti sulle GPU con mp.spawn. Scrittura del
+JSON serializzata con lock (read-modify-write atomico). La fase 2 parte solo dopo
+che la fase 1 e' completa (due spawn sequenziali).
+
+Lancio:
+    python3 -m src.evaluation.checkpoint_selection --n_samples 100 \
+        --refine_top 3 --guidance_scale 2.0
 """
 import os
 import json
@@ -42,6 +52,7 @@ from monai.apps.generation.maisi.networks.autoencoderkl_maisi import Autoencoder
 from monai.apps.generation.maisi.networks.diffusion_model_unet_maisi import DiffusionModelUNetMaisi
 from src.data.transforms import get_encoding_transforms
 from src.evaluation.metrics import VolumeStream, compute_fid_2p5d
+from src.evaluation.plot_fid_curve import plot_fid_curve
 
 
 # Caricamento modelli (replica minima di sample.py, senza DDP)
@@ -73,7 +84,7 @@ def load_autoencoder(config_net, ckpt_path, device):
     return net
 
 
-def load_unet(config_net, ckpt_path, device):
+def build_unet(config_net, device):
     nc=config_net["diffusion_unet_def"]
     net=DiffusionModelUNetMaisi(
         spatial_dims=3, in_channels=4, out_channels=4,
@@ -89,31 +100,61 @@ def load_unet(config_net, ckpt_path, device):
         include_bottom_region_index_input=False,
         include_spacing_input=False,
     ).to(device)
+    return net
 
+
+def load_unet(config_net, ckpt_path, device):
+    """Carica UNet + scale_factor + latent_mean (v4)."""
+    net=build_unet(config_net, device)
     ckpt=torch.load(ckpt_path, map_location=device, weights_only=False)
     state={k.replace("module.", "", 1): v for k, v in ckpt["unet_state_dict"].items()}
     net.load_state_dict(state, strict=True)
     sf=ckpt["scale_factor"]
     if isinstance(sf, torch.Tensor):
         sf=sf.to(device)
+    #v4: latent_mean per-canale (retrocompat: 0 se assente)
+    lm=ckpt.get("latent_mean", 0.0)
+    if isinstance(lm, torch.Tensor):
+        lm=lm.to(device)
     net.eval()
     for p in net.parameters():
         p.requires_grad=False
-    return net, sf
+    return net, sf, lm
+
+
+def load_unet_weights_only(config_net, ckpt_path, device):
+    """Carica SOLO i pesi (per il modello 'bad' dell'autoguidance)."""
+    net=build_unet(config_net, device)
+    ckpt=torch.load(ckpt_path, map_location=device, weights_only=False)
+    state={k.replace("module.", "", 1): v for k, v in ckpt["unet_state_dict"].items()}
+    net.load_state_dict(state, strict=True)
+    net.eval()
+    for p in net.parameters():
+        p.requires_grad=False
+    return net
 
 
 class ReconModel(torch.nn.Module):
-    def __init__(self, autoencoder, scale_factor):
+    """De-normalizza (v4): z/scale_factor + latent_mean, poi decode."""
+    def __init__(self, autoencoder, scale_factor, latent_mean):
         super().__init__()
         self.autoencoder=autoencoder
         self.scale_factor=scale_factor
+        self.latent_mean=latent_mean
 
     def forward(self, z):
-        return self.autoencoder.decode_stage_2_outputs(z/self.scale_factor)
+        z=z/self.scale_factor + self.latent_mean
+        return self.autoencoder.decode_stage_2_outputs(z)
 
 
 @torch.inference_mode()
-def generate_one(unet, recon_model, scheduler, latent_shape, steps, device, inferer):
+def generate_one(unet, unet_bad, guidance_scale, recon_model, scheduler,
+                 latent_shape, steps, device, inferer):
+    """
+    Genera un volume. Se unet_bad is not None applica l'autoguidance:
+        v = v_bad + w*(v_good - v_bad)
+    altrimenti usa la sola v_good (selezione grezza).
+    """
     noise=torch.randn((1, *latent_shape), device=device)
     image=noise
     scheduler.set_timesteps(num_inference_steps=steps,
@@ -122,7 +163,13 @@ def generate_one(unet, recon_model, scheduler, latent_shape, steps, device, infe
     all_next=torch.cat((all_t[1:], torch.tensor([0], dtype=all_t.dtype)))
     with autocast("cuda", enabled=True):
         for t, nt in zip(all_t, all_next):
-            out=unet(x=image, timesteps=torch.Tensor((t,)).to(device))
+            t_in=torch.Tensor((t,)).to(device)
+            v_good=unet(x=image, timesteps=t_in)
+            if unet_bad is not None:
+                v_bad=unet_bad(x=image, timesteps=t_in)
+                out=v_bad + guidance_scale*(v_good - v_bad)
+            else:
+                out=v_good
             image, _=scheduler.step(out, t, image, nt)
         synth=inferer(network=recon_model, inputs=image) if inferer is not None else recon_model(image)
     data=synth.squeeze().cpu().float().numpy()
@@ -159,7 +206,6 @@ def _read_results(results_path):
 
 
 def _already_done(results_path, key, lock):
-    """Controlla (sotto lock) se un checkpoint e' gia' nel JSON unico."""
     with lock:
         data=_read_results(results_path)
         if key in data:
@@ -168,50 +214,75 @@ def _already_done(results_path, key, lock):
 
 
 def _save_result(results_path, key, result, lock):
-    """
-    Scrittura atomica sul JSON unico: sotto lock rilegge il file corrente,
-    aggiunge la chiave e riscrive. Cosi' processi su GPU diverse non si
-    sovrascrivono a vicenda.
-    """
     with lock:
         data=_read_results(results_path)
         data[key]=result
         tmp=results_path + ".tmp"
         with open(tmp, "w") as f:
             json.dump(data, f, indent=2)
-        os.replace(tmp, results_path)  # rename atomico
+        os.replace(tmp, results_path)
 
 
-def evaluate_one_checkpoint(ep, args, config, config_net, autoencoder, scheduler,
-                            inferer, real_stream, latent_shape, steps, spacing,
-                            base_seed, device, results_path, lock):
+def derive_bad_epoch(good_ep, available_epochs, frac=0.30):
     """
-    Genera i campioni di UN checkpoint, ne calcola il FID e lo scrive nel JSON
-    unico (in modo atomico tramite lock). Ritorna il dict del risultato.
+    Deriva l'epoca 'bad' per l'autoguidance: il checkpoint disponibile piu'
+    vicino a frac*good_ep, ma STRETTAMENTE precoce rispetto al good (bad < good).
+    Ritorna l'epoca del bad, oppure None se non esiste un candidato valido
+    (es. good troppo precoce -> nessun checkpoint sotto di esso).
+    """
+    target=frac*good_ep
+    candidates=[e for e in available_epochs if e<good_ep]
+    if not candidates:
+        return None
+    #il piu' vicino al target tra quelli piu' precoci del good
+    return min(candidates, key=lambda e: abs(e-target))
+
+
+def evaluate_one_checkpoint(ep, args, config_net, autoencoder, scheduler,
+                            inferer, real_stream, latent_shape, steps, spacing,
+                            base_seed, device, results_path, lock,
+                            bad_ep=None, guidance_scale=1.0, tag=""):
+    """
+    Genera i campioni di UN checkpoint, calcola il FID, scrive nel JSON (atomico).
+    Se bad_ep is not None -> autoguidance attiva con quel bad.
+    'tag' distingue le cartelle/chiavi tra fase1 (grezza) e fase2 (refined).
     """
     key=f"epoch{ep}"
 
-    # ripresa incrementale: gia' nel JSON unico?
     done=_already_done(results_path, key, lock)
     if done is not None:
-        print(f"[{device}] [{key}] gia' valutato (FID={done['fid_avg']:.3f}), salto.")
+        print(f"[{device}] [{tag}{key}] gia' valutato (FID={done['fid_avg']:.3f}), salto.")
         return done
 
     ckpt_path=os.path.join(args.models_dir, f"ldm_unet_epoch{ep}.pt")
     if not os.path.exists(ckpt_path):
-        print(f"[{device}] [{key}] checkpoint non trovato ({ckpt_path}), salto.")
+        print(f"[{device}] [{tag}{key}] checkpoint non trovato ({ckpt_path}), salto.")
         return None
 
-    print(f"\n{'='*55}\n[{device}] [{key}] genero {args.n_samples} campioni\n{'='*55}")
-    unet, scale_factor=load_unet(config_net, ckpt_path, device)
-    recon=ReconModel(autoencoder, scale_factor).to(device)
+    use_ag=bad_ep is not None
+    print(f"\n{'='*55}\n[{device}] [{tag}{key}] genero {args.n_samples} campioni"
+          f"{' + autoguidance (bad=epoch%d, w=%.2f)' % (bad_ep, guidance_scale) if use_ag else ''}"
+          f"\n{'='*55}")
 
-    synth_dir=os.path.join(args.work_dir, f"synth_{key}")
+    unet, scale_factor, latent_mean=load_unet(config_net, ckpt_path, device)
+    recon=ReconModel(autoencoder, scale_factor, latent_mean).to(device)
+
+    unet_bad=None
+    if use_ag:
+        bad_path=os.path.join(args.models_dir, f"ldm_unet_epoch{bad_ep}.pt")
+        if os.path.exists(bad_path):
+            unet_bad=load_unet_weights_only(config_net, bad_path, device)
+        else:
+            print(f"[{device}] [{tag}{key}] bad {bad_path} non trovato: valuto senza guida.")
+            use_ag=False
+
+    synth_dir=os.path.join(args.work_dir, f"synth_{tag}{key}")
     os.makedirs(synth_dir, exist_ok=True)
 
-    for idx in tqdm(range(args.n_samples), desc=f"{device} {key}"):
+    for idx in tqdm(range(args.n_samples), desc=f"{device} {tag}{key}"):
         set_determinism(seed=base_seed + idx)
-        data=generate_one(unet, recon, scheduler, latent_shape, steps, device, inferer)
+        data=generate_one(unet, unet_bad, guidance_scale, recon, scheduler,
+                           latent_shape, steps, device, inferer)
         affine=np.eye(4)
         for i in range(3):
             affine[i, i]=spacing[i]
@@ -219,35 +290,27 @@ def evaluate_one_checkpoint(ep, args, config, config_net, autoencoder, scheduler
                  os.path.join(synth_dir, f"hc_synth_{idx+1:04d}.nii.gz"))
 
     del unet, recon
+    if unet_bad is not None:
+        del unet_bad
     torch.cuda.empty_cache()
 
-    print(f"[{device}] [{key}] calcolo FID...")
+    print(f"[{device}] [{tag}{key}] calcolo FID...")
     synth_files=sorted(glob.glob(os.path.join(synth_dir, "hc_synth_*.nii.gz")))
     synth_stream=VolumeStream(synth_files, _load_synth)
     fid_res=compute_fid_2p5d(real_stream, synth_stream, device=device,
                              drop_empty=True, batch_size=32, verbose=True)
-    result={"epoch": ep, **fid_res}
+    result={"epoch": ep, **fid_res, "autoguidance": use_ag}
+    if use_ag:
+        result["bad_epoch"]=bad_ep
+        result["guidance_scale"]=guidance_scale
 
     _save_result(results_path, key, result, lock)
-    print(f"[{device}] [{key}] FID medio = {fid_res['fid_avg']:.3f}  (salvato in {results_path})")
+    print(f"[{device}] [{tag}{key}] FID medio = {fid_res['fid_avg']:.3f}  (salvato in {results_path})")
     return result
 
 
-def worker(rank, n_gpus, args, all_epochs, lock):
-    """
-    Processo per UNA GPU. Valuta il sottoinsieme di epoche assegnato a questo rank
-    (round-robin). Il VAE, lo scheduler e lo stream delle reali si caricano una
-    volta e si riusano per tutti i checkpoint di competenza.
-    """
-    torch.cuda.set_device(rank)
-    device=f"cuda:{rank}"
-
-    my_epochs=all_epochs[rank::n_gpus]
-    if not my_epochs:
-        print(f"[{device}] nessun checkpoint assegnato, esco.")
-        return
-    print(f"[{device}] checkpoint assegnati: {my_epochs}")
-
+def _init_worker_common(args, device):
+    """Carica config, VAE, scheduler, inferer e stream reali (comuni ai checkpoint)."""
     with open(args.config) as f:
         config=json.load(f)
     with open(args.network) as f:
@@ -262,8 +325,7 @@ def worker(rank, n_gpus, args, all_epochs, lock):
     latent_shape=(latent_channels, output_size[0] // 4, output_size[1] // 4, output_size[2] // 4)
 
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v3/autoencoder_best.pt")
-
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v4/autoencoder_best.pt")
     print(f"[{device}] carico VAE da {ae_ckpt}")
     autoencoder=load_autoencoder(config_net, ae_ckpt, device)
 
@@ -272,7 +334,8 @@ def worker(rank, n_gpus, args, all_epochs, lock):
         num_train_timesteps=sched_cfg.get("num_train_timesteps", 1000),
         use_discrete_timesteps=sched_cfg.get("use_discrete_timesteps", False),
         use_timestep_transform=sched_cfg.get("use_timestep_transform", True),
-        scale=sched_cfg.get("scale", 1.4),
+        loc=sched_cfg.get("loc", 0.0),
+        scale=sched_cfg.get("scale", 1.0),
         sample_method=sched_cfg.get("sample_method", "uniform"),
     )
     inferer=SlidingWindowInferer(roi_size=[64, 64, 64], sw_batch_size=1, progress=False,
@@ -283,74 +346,149 @@ def worker(rank, n_gpus, args, all_epochs, lock):
     real_stream=VolumeStream(test_items, _load_real)
     print(f"[{device}] test set reale: {len(real_stream)} volumi")
 
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v3.json")
+    return (config_net, autoencoder, scheduler, inferer, real_stream,
+            latent_shape, steps, spacing, base_seed)
 
+
+def worker_phase1(rank, n_gpus, args, all_epochs, lock):
+    """FASE 1: selezione grezza senza autoguidance."""
+    torch.cuda.set_device(rank)
+    device=f"cuda:{rank}"
+    my_epochs=all_epochs[rank::n_gpus]
+    if not my_epochs:
+        print(f"[{device}] (fase1) nessun checkpoint assegnato.")
+        return
+    print(f"[{device}] (fase1) checkpoint: {my_epochs}")
+
+    common=_init_worker_common(args, device)
+    (config_net, autoencoder, scheduler, inferer, real_stream,
+     latent_shape, steps, spacing, base_seed)=common
+
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4.json")
     for ep in my_epochs:
         evaluate_one_checkpoint(
-            ep, args, config, config_net, autoencoder, scheduler, inferer,
-            real_stream, latent_shape, steps, spacing, base_seed, device,
-            results_path, lock,
+            ep, args, config_net, autoencoder, scheduler, inferer, real_stream,
+            latent_shape, steps, spacing, base_seed, device, results_path, lock,
+            bad_ep=None, guidance_scale=1.0, tag="",
         )
 
 
-def rank_and_plot(args, all_epochs):
+def worker_phase2(rank, n_gpus, args, refine_jobs, lock):
     """
-    Legge il JSON unico finale, stampa la classifica e genera il grafico
-    FID-vs-epoca. Eseguito dal processo principale dopo che i worker hanno finito.
+    FASE 2: raffinamento con autoguidance. refine_jobs e' una lista di tuple
+    (good_ep, bad_ep) gia' calcolate dal main sui top-K. Ogni rank ne prende una
+    fetta round-robin.
     """
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v3.json")
-    results=_read_results(results_path)
-    if not results:
-        print("Nessun risultato trovato.")
+    torch.cuda.set_device(rank)
+    device=f"cuda:{rank}"
+    my_jobs=refine_jobs[rank::n_gpus]
+    if not my_jobs:
+        print(f"[{device}] (fase2) nessun job assegnato.")
+        return
+    print(f"[{device}] (fase2) job (good,bad): {my_jobs}")
+
+    common=_init_worker_common(args, device)
+    (config_net, autoencoder, scheduler, inferer, real_stream,
+     latent_shape, steps, spacing, base_seed)=common
+
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4_refined.json")
+    for good_ep, bad_ep in my_jobs:
+        evaluate_one_checkpoint(
+            good_ep, args, config_net, autoencoder, scheduler, inferer, real_stream,
+            latent_shape, steps, spacing, base_seed, device, results_path, lock,
+            bad_ep=bad_ep, guidance_scale=args.guidance_scale, tag="ag_",
+        )
+
+
+def plot_refined_bars(raw_path, refined_path, out_path):
+    """
+    Grafico a BARRE: per ogni top-K, FID senza guida (fase1) vs con guida (fase2).
+    Mostra l'effetto dell'autoguidance sui checkpoint migliori.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    raw=_read_results(raw_path)
+    refined=_read_results(refined_path)
+    if not refined:
+        print("Nessun risultato raffinato, salto il grafico a barre.")
         return
 
-    print(f"\n{'='*55}\nCLASSIFICA CHECKPOINT PER FID (piu' basso = meglio)\n{'='*55}")
+    #ordina i candidati raffinati per epoca
+    items=sorted(refined.values(), key=lambda r: r["epoch"])
+    epochs=[r["epoch"] for r in items]
+    fid_with=[r["fid_avg"] for r in items]
+    #valore senza guida dallo stesso checkpoint (fase1)
+    fid_without=[raw.get(f"epoch{ep}", {}).get("fid_avg", float("nan")) for ep in epochs]
+
+    x=np.arange(len(epochs))
+    w=0.38
+    fig, ax=plt.subplots(figsize=(8, 5.5))
+    b1=ax.bar(x-w/2, fid_without, w, label="senza autoguidance", color="#888780")
+    b2=ax.bar(x+w/2, fid_with, w, label="con autoguidance", color="#1d9e75")
+
+    for bars in (b1, b2):
+        for bar in bars:
+            h=bar.get_height()
+            if not np.isnan(h):
+                ax.annotate(f"{h:.1f}", xy=(bar.get_x()+bar.get_width()/2, h),
+                            xytext=(0, 3), textcoords="offset points",
+                            ha="center", fontsize=9)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"epoch {e}" for e in epochs])
+    ax.set_ylabel("FID 2.5D (più basso=meglio)", fontsize=11)
+    ax.set_title("Effetto dell'autoguidance sui checkpoint migliori", fontsize=12, fontweight="bold")
+    ax.grid(True, axis="y", alpha=0.3, linestyle=":")
+    ax.legend(fontsize=10)
+    fig.tight_layout()
+
+    out_dir=os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    print(f"Salvato: {out_path}")
+    if out_path.lower().endswith(".png"):
+        fig.savefig(out_path[:-4]+".pdf", bbox_inches="tight")
+        print(f"Salvato: {out_path[:-4]}.pdf")
+    plt.close(fig)
+
+
+def print_ranking(results, title):
+    if not results:
+        print(f"{title}: nessun risultato.")
+        return None
+    print(f"\n{'='*55}\n{title}\n{'='*55}")
     ranked=sorted(results.items(), key=lambda kv: kv[1]["fid_avg"])
     for rank, (key, r) in enumerate(ranked, 1):
+        ag="  [AG]" if r.get("autoguidance") else ""
         print(f"{rank}. {key:>10}  FID medio = {r['fid_avg']:.3f}  "
-              f"(XY {r['fid_xy']:.1f} / YZ {r['fid_yz']:.1f} / ZX {r['fid_zx']:.1f})")
+              f"(XY {r['fid_xy']:.1f} / YZ {r['fid_yz']:.1f} / ZX {r['fid_zx']:.1f}){ag}")
     best_key, best_r=ranked[0]
     print(f"\nMIGLIORE: {best_key} con FID {best_r['fid_avg']:.3f}")
-    print("NB: con 100 campioni il FID ha ancora varianza; differenze piccole")
-    print("(<5) tra checkpoint vicini potrebbero non essere significative.")
-
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        eps_sorted=sorted(results.values(), key=lambda r: r["epoch"])
-        xs=[r["epoch"] for r in eps_sorted]
-        ys=[r["fid_avg"] for r in eps_sorted]
-        plt.figure(figsize=(8, 5))
-        plt.plot(xs, ys, marker="o", color="C0")
-        plt.xlabel("Epoca checkpoint LDM")
-        plt.ylabel("FID medio (3 piani)")
-        plt.title("Selezione checkpoint LDM via FID")
-        plt.grid(True, alpha=0.3)
-        plt.scatter([best_r["epoch"]], [best_r["fid_avg"]], color="C3", zorder=5,
-                    label=f"best: ep{best_r['epoch']} (FID {best_r['fid_avg']:.2f})")
-        plt.legend()
-        plot_path=os.path.join(args.work_dir, "fid_vs_epoch_v3.png")
-        plt.savefig(plot_path, dpi=150, bbox_inches="tight")
-        plt.close()
-        print(f"Grafico salvato in {plot_path}")
-    except Exception as e:
-        print(f"[avviso] impossibile generare il grafico: {e}")
+    return ranked
 
 
 def main():
-    ap=argparse.ArgumentParser(description="Selezione checkpoint LDM via FID (multi-GPU)")
+    ap=argparse.ArgumentParser(description="Selezione checkpoint LDM via FID (multi-GPU, v4)")
     ap.add_argument("--config", type=str, default="configs/config_diff_model.json")
     ap.add_argument("--network", type=str, default="configs/config_network.json")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
-    ap.add_argument("--models_dir", type=str, default="outputs/models_v3")
-    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v3",
-                    help="dove salvare le immagini temporanee e il JSON dei risultati")
+    ap.add_argument("--models_dir", type=str, default="outputs/models_v4")
+    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v4",
+                    help="dove salvare le immagini temporanee e i JSON dei risultati")
     ap.add_argument("--n_samples", type=int, default=100)
     ap.add_argument("--epochs", type=str, default="100,200,300,400,500,600,700,800,900,1000",
                     help="lista epoche dei checkpoint da testare, separate da virgola")
-    ap.add_argument("--n_gpus", type=int, default=0,
-                    help="numero di GPU da usare (0 = tutte le disponibili)")
+    ap.add_argument("--n_gpus", type=int, default=0, help="numero di GPU (0 = tutte)")
+    #FASE 2 (raffinamento con autoguidance)
+    ap.add_argument("--refine_top", type=int, default=3,
+                    help="quanti checkpoint migliori rivalutare con autoguidance (0 = salta la fase 2)")
+    ap.add_argument("--guidance_scale", type=float, default=2.0,
+                    help="scala w dell'autoguidance nella fase 2")
+    ap.add_argument("--bad_frac", type=float, default=0.30,
+                    help="frazione dell'epoca del good da cui derivare il bad")
     args=ap.parse_args()
 
     os.makedirs(args.work_dir, exist_ok=True)
@@ -362,16 +500,58 @@ def main():
     print(f"GPU disponibili: {n_avail}, uso: {n_gpus}")
     print(f"Checkpoint da valutare: {all_epochs}")
 
-    # lock condiviso per la scrittura atomica del JSON unico
     manager=Manager()
     lock=manager.Lock()
 
+    # ---------- FASE 1: selezione grezza (senza autoguidance) ----------
     if n_gpus==1:
-        worker(0, 1, args, all_epochs, lock)
+        worker_phase1(0, 1, args, all_epochs, lock)
     else:
-        mp.spawn(worker, args=(n_gpus, args, all_epochs, lock), nprocs=n_gpus, join=True)
+        mp.spawn(worker_phase1, args=(n_gpus, args, all_epochs, lock), nprocs=n_gpus, join=True)
 
-    rank_and_plot(args, all_epochs)
+    raw_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4.json")
+    raw_results=_read_results(raw_path)
+    ranked=print_ranking(raw_results, "FASE 1 - CLASSIFICA (senza autoguidance)")
+
+    # grafico 1: curva FID-vs-epoca (via plot_fid_curve.py)
+    plot_fid_curve(
+        json_path=raw_path,
+        save_path=os.path.join("outputs/metrics", "fid_vs_epoch_v4.png"),
+        title="Selezione checkpoint LDM v4 - FID vs epoca (senza autoguidance)",
+    )
+
+    # ---------- FASE 2: raffinamento top-K (con autoguidance) ----------
+    if args.refine_top > 0 and ranked:
+        #epoche effettivamente presenti su disco (per derivare i bad)
+        available=[e for e in all_epochs
+                   if os.path.exists(os.path.join(args.models_dir, f"ldm_unet_epoch{e}.pt"))]
+        top_keys=[k for k, _ in ranked[:args.refine_top]]
+        top_eps=[raw_results[k]["epoch"] for k in top_keys]
+
+        refine_jobs=[]
+        for good_ep in top_eps:
+            bad_ep=derive_bad_epoch(good_ep, available, frac=args.bad_frac)
+            if bad_ep is None:
+                print(f"[fase2] good epoch{good_ep}: nessun bad valido (troppo precoce) "
+                      f"-> verra' valutato senza guida.")
+            refine_jobs.append((good_ep, bad_ep))  # bad_ep None -> evaluate senza guida
+
+        print(f"[fase2] job di raffinamento (good, bad): {refine_jobs}")
+
+        if n_gpus==1:
+            worker_phase2(0, 1, args, refine_jobs, lock)
+        else:
+            mp.spawn(worker_phase2, args=(n_gpus, args, refine_jobs, lock), nprocs=n_gpus, join=True)
+
+        refined_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4_refined.json")
+        refined_results=_read_results(refined_path)
+        print_ranking(refined_results, "FASE 2 - CLASSIFICA (con autoguidance)")
+
+        # grafico 2: barre di confronto senza vs con autoguidance
+        plot_refined_bars(
+            raw_path, refined_path,
+            os.path.join("outputs/metrics", "fid_autoguidance_top_v4.png"),
+        )
 
 
 if __name__=="__main__":
