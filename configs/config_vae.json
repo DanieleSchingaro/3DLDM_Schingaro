@@ -12,20 +12,21 @@
         "val_patch_size": [128, 128, 128],
         "val_sliding_window_patch_size": [128, 128, 128],
         "lr": 2.5e-5,
-        "perceptual_weight": 1.0,
+        "perceptual_weight": 0.7,
         "kl_weight": 5e-6,
-        "adv_weight": 0.1,
+        "adv_weight": 0.02,
         "recon_loss": "l1",
         "val_interval": 5,
         "cache_rate": 0.0,
         "amp": true,
         "n_epochs": 300,
-        "num_workers": 2,
-        "warm_up_epochs": 20
+        "num_workers": 8,
+        "warm_up_epochs": 10,
+        "lr_warmup_epochs": 20
     },
     "paths": {
         "data_base_dir": "./data/raw",
-        "model_dir": "./outputs/models_v3",
+        "model_dir": "./outputs/models_v4",
         "model_filename": "autoencoder.pt",
         "splits_path": "./data/splits/dataset.json"
     }
