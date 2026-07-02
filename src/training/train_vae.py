@@ -462,7 +462,7 @@ def save_learning_curves(
 
     #salvataggio grafico
     os.makedirs(save_dir, exist_ok=True)
-    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v3.png")
+    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v4.png")
     plt.savefig(curve_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -559,7 +559,7 @@ def main():
         #destabilizza col lr pieno fin dall'epoca 0. Invece di gradini bruschi
         #(che causavano scossoni nella loss a epoca 10 e 20), si usa una rampa
         #continua da lr*0.01 a lr pieno nelle prime warmup_len epoche.
-        warmup_len=20
+        warmup_len=train_cfg["lr_warmup_epochs"]
         warmup_start=0.01
         def warmup_rule(epoch):
             if epoch>=warmup_len:
@@ -627,7 +627,7 @@ def main():
             all_train_gen.append(train_metrics["gen_loss"])
             all_train_disc.append(train_metrics["disc_loss"])
 
-            if (epoch + 1) % val_interval == 0:
+            if (epoch + 1)%val_interval==0:
 
                 #validazione DISTRIBUITA: tutti i rank entrano in validate(),
                 #ognuno valida ~25 volumi, l'all_reduce finale (dentro validate)
