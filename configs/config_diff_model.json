@@ -7,6 +7,7 @@
         "num_workers": 4,
         "val_interval": 50,
         "save_interval": 100,
+        "lr_warmup_epochs": 50,
         "amp": true
     },
     "diffusion_unet_inference": {
