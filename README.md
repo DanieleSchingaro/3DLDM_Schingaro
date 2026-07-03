@@ -21,16 +21,46 @@ The pipeline is organised in two stages, trained sequentially:
    diffusion model operates, and therefore sets the upper bound on the achievable
    reconstruction fidelity.
 
-2. **Latent Diffusion Model (LDM).** A `DiffusionModelUNetMaisi` (~178M
-   parameters) is trained **unconditionally** in the VAE latent space, using a
-   **Rectified Flow** noise scheduler (30 inference steps). Starting from Gaussian
-   noise, the model denoises a latent that is then decoded by the VAE into a
-   `256^3` volume.
+2. **Latent Diffusion Model (LDM).** A `DiffusionModelUNetMaisi` is trained
+   **unconditionally** in the VAE latent space, using a **Rectified Flow** noise
+   scheduler (30 inference steps). Starting from Gaussian noise, the model denoises
+   a latent that is then decoded by the VAE into a `256^3` volume.
 
 Generation is fully unconditional: no modality, region, or spacing conditioning is
 used. The UNet is built with `with_conditioning=False` and `num_class_embeds=None`.
 Any conditioning-related parameters inherited from the MAISI framework (e.g. a
 `modality` code in the inference config) are therefore ignored by the model.
+
+### Latent normalisation and diffusion training
+
+Since the diffusion model operates on VAE latents, the latents are normalised
+before training. Normalisation is **per-channel** and **centred**: each latent
+channel is standardised using its own mean and standard deviation
+(`(z - mean) * scale`, both stored per-channel), which conditions the four latent
+channels consistently and centres the target on the noise support. The statistics
+are computed over the whole training set and saved in the checkpoint, so that
+sampling can de-normalise correctly before decoding.
+
+Timesteps are sampled with a **logit-normal** schedule during training, which
+concentrates capacity on the mid-range timesteps where the denoising task is
+hardest (as opposed to a uniform schedule). A linear learning-rate **warmup** is
+applied to both the VAE and the LDM optimiser.
+
+### Sampling with autoguidance
+
+Because generation is unconditional, classifier-free guidance does not apply.
+Instead, sampling uses **autoguidance**: the trained model is guided by a *weaker
+version of itself* — an earlier checkpoint of the same run. At each denoising step
+the velocity is extrapolated as
+
+```
+v = v_bad + w * (v_good - v_bad)
+```
+
+where `v_good` is the selected (best) checkpoint, `v_bad` an earlier checkpoint of
+the same run, and `w` the guidance scale. This sharpens fine detail on
+unconditional samples without requiring an EMA of the weights. Autoguidance is on
+by default and can be disabled to produce a baseline.
 
 ### Data
 
@@ -52,8 +82,12 @@ Synthetic volumes are compared against real ones using three metrics:
 - **MS-SSIM** (intra-set) — pairwise multi-scale SSIM among synthetic samples vs
   among real samples, used to detect mode collapse (diversity check).
 
-A checkpoint-selection routine additionally evaluates the FID of each LDM training
-checkpoint, producing a FID-vs-epoch curve.
+A **checkpoint-selection** routine selects the best LDM checkpoint by FID in two
+phases: (1) a coarse pass evaluates every checkpoint *without* autoguidance to
+rank them and produce a FID-vs-epoch curve; (2) the top-K checkpoints are
+re-evaluated *with* autoguidance, and a bar chart compares FID with vs without
+guidance. The final reported metrics are computed by `eval.py` on the volumes
+generated with autoguidance, i.e. the final generation configuration.
 
 ---
 
@@ -71,23 +105,25 @@ checkpoint, producing a FID-vs-epoch curve.
 │   ├── data/
 │   │   ├── transforms.py           # MONAI transform pipelines (VAE / encoding)
 │   │   ├── dataset.py              # dataset for VAE training (image volumes)
-│   │   ├── encode_dataset.py       # encode volumes -> latent embeddings (VAE)
-│   │   ├── embeddings_dataset.py   # dataset of encoded latents
+│   │   ├── encode_dataset.py       # encode volumes -> latent embeddings (multi-GPU)
+│   │   ├── embeddings_dataset.py   # build the latent split for the LDM
 │   │   └── ldm_dataset.py          # dataset for LDM training (latents)
 │   ├── training/
 │   │   ├── train_vae.py            # stage 1: VAE training (DDP, multi-GPU)
-│   │   └── train_ldm.py            # stage 2: LDM training (DDP, RFlow)
+│   │   └── train_ldm.py            # stage 2: LDM training (DDP, RFlow, per-channel scale)
 │   ├── inference/
-│   │   └── sample.py               # generate synthetic volumes from the LDM
+│   │   └── sample.py               # generate synthetic volumes (autoguidance)
 │   └── evaluation/
 │       ├── metrics.py              # FID 2.5D, MMD, MS-SSIM (lazy VolumeStream)
 │       ├── eval.py                 # run evaluation (real vs synthetic)
-│       ├── checkpoint_selection.py # FID per checkpoint (model selection)
+│       ├── checkpoint_selection.py # FID per checkpoint + top-K autoguidance refine
 │       └── plot_fid_curve.py       # plot the FID-vs-epoch curve
 │
-├── scripts/                        # launch scripts (activate venv, run a stage)
+├── scripts/                        # SLURM launch scripts (activate venv, run a stage)
 │   ├── run_train_vae.sh
+│   ├── run_encode.sh
 │   ├── run_train_ldm.sh
+│   ├── run_checkpoint_selection.sh
 │   ├── run_sample.sh
 │   └── run_eval.sh
 │
@@ -110,7 +146,7 @@ checkpoint, producing a FID-vs-epoch curve.
 ├── data/                           # (DVC-tracked, not in git)
 │   ├── raw/                        # original HC volumes per dataset
 │   ├── processed/embeddings/       # encoded latents
-│   ├── splits/dataset.json         # train/val/test split
+│   ├── splits/                     # train/val/test splits (JSON)
 │   └── synthetic/                  # generated synthetic volumes
 │
 ├── outputs/                        # (mostly git-ignored)
@@ -121,6 +157,11 @@ checkpoint, producing a FID-vs-epoch curve.
 ├── requirements.txt
 └── README.md
 ```
+
+> **Note on paths.** Paths in the configs are versioned by iteration (e.g. models,
+> embeddings and synthetic outputs live in version-suffixed folders). The commands
+> below use the generic names for readability; the actual folder names follow the
+> current iteration configured in `configs/`.
 
 ---
 
@@ -153,60 +194,66 @@ committed; the data itself is managed through the local DVC cache.
 
 ## Usage
 
-All stages read paths and hyperparameters from the `configs/*.json` files. Long
-jobs are best run inside `tmux`, since training and evaluation can take hours.
-The `scripts/run_*.sh` helpers activate the environment and launch each stage.
+All stages read paths and hyperparameters from the `configs/*.json` files. The
+long-running stages are submitted as **SLURM** jobs via the `scripts/run_*.sh`
+helpers (each activates the environment and launches one stage). The pipeline is
+**sequential**: each stage consumes the output of the previous one.
 
 ### 1. Train the VAE (stage 1)
 
 ```bash
-bash scripts/run_train_vae.sh
+sbatch scripts/run_train_vae.sh
 ```
 
 ### 2. Encode volumes into latents
 
-Once the VAE is trained, real volumes are encoded into latents that will feed the
-LDM:
+Once the VAE is trained, real volumes are encoded into latents (multi-GPU) and a
+latent split is built for the LDM:
 
 ```bash
-python3 -m src.data.encode_dataset
+sbatch scripts/run_encode.sh
+python3 -m src.data.embeddings_dataset
 ```
 
 ### 3. Train the LDM (stage 2)
 
 ```bash
-bash scripts/run_train_ldm.sh
+sbatch scripts/run_train_ldm.sh
 ```
 
-### 4. Generate synthetic volumes
+### 4. Select the best checkpoint (FID) with autoguidance refinement
+
+Evaluate the FID of every LDM checkpoint, then re-evaluate the top-K with
+autoguidance. Produces the FID-vs-epoch curve and a with/without-guidance
+comparison chart:
 
 ```bash
-# generate N synthetic volumes (default 100) into data/synthetic/
-bash scripts/run_sample.sh 100
+sbatch scripts/run_checkpoint_selection.sh
 ```
 
-Each run saves the NIfTI volumes plus orthogonal-view PNG previews.
+### 5. Generate synthetic volumes
 
-### 5. Evaluate
+Set the selected (`good`) and earlier (`bad`) checkpoints in
+`scripts/run_sample.sh`, then generate N volumes (default 100) with autoguidance:
 
 ```bash
-# compare synthetic vs real (test set, 102 hold-out volumes)
-bash scripts/run_eval.sh test
+sbatch scripts/run_sample.sh 100
+```
+
+Each run saves the NIfTI volumes plus orthogonal-view PNG previews. A baseline
+without autoguidance can be produced by disabling it in the launch script.
+
+### 6. Evaluate
+
+```bash
+# compare synthetic vs real (test set, hold-out volumes)
+sbatch scripts/run_eval.sh test
 
 # compare against the full real dataset (lower-variance FID reference)
-bash scripts/run_eval.sh all
+sbatch scripts/run_eval.sh all
 ```
 
-Results are written to `outputs/metrics/eval_<source>.json`.
-
-### 6. Checkpoint selection (optional)
-
-Evaluate the FID of every LDM checkpoint and plot the FID-vs-epoch curve:
-
-```bash
-python3 -m src.evaluation.checkpoint_selection --n_samples 100
-python3 -m src.evaluation.plot_fid_curve
-```
+Results are written to `outputs/metrics/`.
 
 ---
 
@@ -219,8 +266,10 @@ python3 -m src.evaluation.plot_fid_curve
   repeated runs produce the same samples.
 - **Reference.** Architecture and scheduler follow NVIDIA's
   NV-Generate-CTMR / MAISI. See the
-  [Latent Diffusion (CVPR 2022)](https://openaccess.thecvf.com/content/CVPR2022/papers/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.pdf)
-  and [Rectified Flow (ICLR 2023)](https://arxiv.org/pdf/2209.03003) papers.
+  [Latent Diffusion (CVPR 2022)](https://openaccess.thecvf.com/content/CVPR2022/papers/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.pdf),
+  [Rectified Flow (ICLR 2023)](https://arxiv.org/pdf/2209.03003) and
+  autoguidance ([Karras et al., NeurIPS 2024](https://arxiv.org/abs/2406.02507))
+  papers.
 
 ---
 
