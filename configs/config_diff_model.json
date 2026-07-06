@@ -23,6 +23,6 @@
         "model_dir": "./outputs/models_v4",
         "model_filename": "ldm_unet_best.pt",
         "splits_path": "./data/splits/embeddings_dataset_v4.json",
-        "trained_autoencoder_path": "./outputs/models_v4/autoencoder_best.pt"
+        "trained_autoencoder_path": "./outputs/models_v2/autoencoder_best.pt"
     }
 }
