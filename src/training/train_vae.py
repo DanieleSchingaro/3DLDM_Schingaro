@@ -2,6 +2,11 @@
 """
 Training del VAE per MRI cerebrali T1 skull-stripped
 Basato su NV-Generate-CTMR (NVIDIA, 2026)
+
+# NOTA v4: questo VAE usa warmup lineare del lr (vs gradini di v2).
+# Esito sperimentale: ricostruzione PEGGIORE di v2 (SSIM ~0.85 vs 0.987).
+# La pipeline v4 adotta quindi il VAE v2 per encode/decode; questo codice
+# resta come documentazione dell'esperimento, non viene eseguito.
 """
 
 import os
