@@ -310,7 +310,7 @@ def main():
     base_seed=infer_cfg.get("random_seed", 42)
  
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v4/autoencoder_best.pt")
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v2/autoencoder_best.pt")
     #good checkpoint: da --ldm_ckpt se dato, altrimenti dal config
     if args.ldm_ckpt is not None:
         ldm_ckpt=args.ldm_ckpt

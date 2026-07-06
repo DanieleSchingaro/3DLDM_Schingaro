@@ -325,7 +325,7 @@ def _init_worker_common(args, device):
     latent_shape=(latent_channels, output_size[0] // 4, output_size[1] // 4, output_size[2] // 4)
 
     paths=config["paths"]
-    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v4/autoencoder_best.pt")
+    ae_ckpt=paths.get("trained_autoencoder_path", "./outputs/models_v2/autoencoder_best.pt")
     print(f"[{device}] carico VAE da {ae_ckpt}")
     autoencoder=load_autoencoder(config_net, ae_ckpt, device)
 
