@@ -44,7 +44,13 @@ sampling can de-normalise correctly before decoding.
 Timesteps are sampled with a **logit-normal** schedule during training, which
 concentrates capacity on the mid-range timesteps where the denoising task is
 hardest (as opposed to a uniform schedule). A linear learning-rate **warmup** is
-applied to both the VAE and the LDM optimiser.
+applied to the LDM optimiser.
+
+> **Note on the VAE.** This iteration also experimented with a linear LR warmup
+> for the VAE. It produced worse reconstructions than the previous step-wise
+> schedule, so the pipeline reuses the earlier, better-performing VAE checkpoint
+> for encoding and decoding, while the diffusion-side improvements above are kept.
+> The encoding VAE and the decoding VAE are always the same checkpoint.
 
 ### Sampling with autoguidance
 
@@ -119,7 +125,7 @@ generated with autoguidance, i.e. the final generation configuration.
 │       ├── checkpoint_selection.py # FID per checkpoint + top-K autoguidance refine
 │       └── plot_fid_curve.py       # plot the FID-vs-epoch curve
 │
-├── scripts/                        # SLURM launch scripts (activate venv, run a stage)
+├── scripts/                        # launch scripts (activate venv, run a stage; torchrun/python3)
 │   ├── run_train_vae.sh
 │   ├── run_encode.sh
 │   ├── run_train_ldm.sh
@@ -181,8 +187,9 @@ pip install -r requirements.txt
 ```
 
 **Requirements.** The pipeline expects a CUDA-capable GPU (developed and trained on
-NVIDIA H100 GPUs). Multi-GPU training uses PyTorch DDP via `torchrun`. Key
-dependencies: PyTorch, MONAI 1.5.2, `monai-generative` 0.2.3, nibabel, torchmetrics.
+a single node with 4x NVIDIA H100). Multi-GPU stages use PyTorch DDP via
+`torchrun` on the single node (no cluster scheduler required). Key dependencies:
+PyTorch, MONAI 1.5.2, `monai-generative` 0.2.3, nibabel, torchmetrics.
 
 **Data.** Large files (raw volumes, latent embeddings, synthetic outputs) are
 versioned locally with **DVC** and kept out of git. The `.dvc` pointer files are
@@ -194,31 +201,41 @@ committed; the data itself is managed through the local DVC cache.
 
 ## Usage
 
-All stages read paths and hyperparameters from the `configs/*.json` files. The
-long-running stages are submitted as **SLURM** jobs via the `scripts/run_*.sh`
-helpers (each activates the environment and launches one stage). The pipeline is
-**sequential**: each stage consumes the output of the previous one.
+All stages read paths and hyperparameters from the `configs/*.json` files. Each
+stage has a launch script under `scripts/` that activates the environment and
+runs the stage (logging to `logs/` via `tee`). The pipeline runs on a **single
+node with 4 GPUs** (no cluster scheduler); multi-GPU stages use `torchrun`
+internally. It is **sequential**: each stage consumes the output of the previous
+one. Run each stage inside a `tmux` session so it survives an SSH disconnect.
+
+```bash
+bash scripts/run_<stage>.sh        # or: source the script's command directly
+```
 
 ### 1. Train the VAE (stage 1)
 
 ```bash
-sbatch scripts/run_train_vae.sh
+bash scripts/run_train_vae.sh
 ```
+
+> The current iteration reuses the previous, better-performing VAE checkpoint
+> (see the note in *Method*), so this stage is not re-run; the script is kept
+> for reference. The encoding stage points `--checkpoint` at that VAE.
 
 ### 2. Encode volumes into latents
 
-Once the VAE is trained, real volumes are encoded into latents (multi-GPU) and a
-latent split is built for the LDM:
+Real volumes are encoded into latents (multi-GPU), then a latent split is built
+for the LDM:
 
 ```bash
-sbatch scripts/run_encode.sh
+bash scripts/run_encode.sh
 python3 -m src.data.embeddings_dataset
 ```
 
 ### 3. Train the LDM (stage 2)
 
 ```bash
-sbatch scripts/run_train_ldm.sh
+bash scripts/run_train_ldm.sh
 ```
 
 ### 4. Select the best checkpoint (FID) with autoguidance refinement
@@ -228,7 +245,7 @@ autoguidance. Produces the FID-vs-epoch curve and a with/without-guidance
 comparison chart:
 
 ```bash
-sbatch scripts/run_checkpoint_selection.sh
+bash scripts/run_checkpoint_selection.sh
 ```
 
 ### 5. Generate synthetic volumes
@@ -237,7 +254,7 @@ Set the selected (`good`) and earlier (`bad`) checkpoints in
 `scripts/run_sample.sh`, then generate N volumes (default 100) with autoguidance:
 
 ```bash
-sbatch scripts/run_sample.sh 100
+bash scripts/run_sample.sh 100
 ```
 
 Each run saves the NIfTI volumes plus orthogonal-view PNG previews. A baseline
@@ -247,10 +264,10 @@ without autoguidance can be produced by disabling it in the launch script.
 
 ```bash
 # compare synthetic vs real (test set, hold-out volumes)
-sbatch scripts/run_eval.sh test
+bash scripts/run_eval.sh test
 
 # compare against the full real dataset (lower-variance FID reference)
-sbatch scripts/run_eval.sh all
+bash scripts/run_eval.sh all
 ```
 
 Results are written to `outputs/metrics/`.
