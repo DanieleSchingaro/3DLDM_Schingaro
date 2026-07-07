@@ -1,16 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=cksel_ldm
-#SBATCH --output=logs/cksel_ldm_%j.log
-#SBATCH --error=logs/cksel_ldm_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:4
-#SBATCH --mem=128G
-#SBATCH --time=35:00:00
 
 source /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro/.venv/bin/activate
 cd /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro
+mkdir -p logs
 
 # ============================================================
 # PARAMETRI (modificabili)
@@ -27,16 +19,17 @@ REFINE_TOP=3
 GUIDANCE_SCALE=2.0
 
 # stampa info ambiente
-echo "Job ID: $SLURM_JOB_ID"
-echo "Node: $SLURMD_NODENAME"
 echo "Start: $(date)"
 echo "GPU disponibili: $(nvidia-smi --list-gpus | wc -l)"
 echo "Campioni per checkpoint: $N_SAMPLES"
 echo "Refine top: $REFINE_TOP | Guidance scale: $GUIDANCE_SCALE"
 
 python3 -m src.evaluation.checkpoint_selection \
+    --models_dir outputs/models_v4 \
+    --work_dir outputs/checkpoint_selection_v4 \
     --n_samples $N_SAMPLES \
     --refine_top $REFINE_TOP \
-    --guidance_scale $GUIDANCE_SCALE
+    --guidance_scale $GUIDANCE_SCALE \
+    2>&1 | tee logs/cksel_v4_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

@@ -1,24 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=encode_ldm
-#SBATCH --output=logs/encode_ldm_%j.log
-#SBATCH --error=logs/encode_ldm_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:4
-#SBATCH --mem=128G
-#SBATCH --time=12:00:00
+# v4: encode con il VAE v2 (--checkpoint). Output in embeddings_v4.
+# Lo stesso VAE v2 deve decodificare in sample/eval (config trained_autoencoder_path).
 
 source /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro/.venv/bin/activate
 cd /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro
+mkdir -p logs
 
 # stampa info ambiente
-echo "Job ID: $SLURM_JOB_ID"
-echo "Node: $SLURMD_NODENAME"
 echo "Start: $(date)"
 echo "GPU disponibili: $(nvidia-smi --list-gpus | wc -l)"
 
 MASTER_PORT=$((29000 + RANDOM % 2000))
-torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.data.encode_dataset
+torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.data.encode_dataset \
+    --checkpoint outputs/models_v2/autoencoder_best.pt \
+    --embedding_dir data/processed/embeddings_v4 \
+    2>&1 | tee logs/encode_v4_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

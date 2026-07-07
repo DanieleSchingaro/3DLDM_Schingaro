@@ -1,24 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=train_ldm
-#SBATCH --output=logs/train_ldm_%j.log
-#SBATCH --error=logs/train_ldm_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:4
-#SBATCH --mem=128G
-#SBATCH --time=200:00:00
 
 source /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro/.venv/bin/activate
 cd /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro
+mkdir -p logs
 
 # stampa info ambiente
-echo "Job ID: $SLURM_JOB_ID"
-echo "Node: $SLURMD_NODENAME"
 echo "Start: $(date)"
 echo "GPU disponibili: $(nvidia-smi --list-gpus | wc -l)"
 
 MASTER_PORT=$((29000 + RANDOM % 2000))
-torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.training.train_ldm
+torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.training.train_ldm \
+    2>&1 | tee logs/train_ldm_v4_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"
