@@ -14,8 +14,8 @@ mkdir -p logs
 # Per generare la BASELINE senza autoguidance: aggiungere --no_autoguidance
 # alla riga torchrun e lasciare BAD vuoto.
 # ============================================================
-LDM_CKPT="./outputs/models_v4/ldm_unet_epoch800.pt"       # <-- GOOD (FID-best): metti il tuo
-LDM_CKPT_BAD="./outputs/models_v4/ldm_unet_epoch200.pt"   # <-- BAD (~30% del good): metti il tuo
+LDM_CKPT="./outputs/models_v4/ldm_unet_epoch1000.pt"       # <-- GOOD (FID-best): metti il tuo
+LDM_CKPT_BAD="./outputs/models_v4/ldm_unet_epoch300.pt"   # <-- BAD (~30% del good): metti il tuo
 GUIDANCE_SCALE=2.0
 
 # numero di campioni da generare (default 100, sovrascrivibile da CLI)
