@@ -41,10 +41,26 @@ channels consistently and centres the target on the noise support. The statistic
 are computed over the whole training set and saved in the checkpoint, so that
 sampling can de-normalise correctly before decoding.
 
-Timesteps are sampled with a **logit-normal** schedule during training, which
-concentrates capacity on the mid-range timesteps where the denoising task is
-hardest (as opposed to a uniform schedule). A linear learning-rate **warmup** is
-applied to the LDM optimiser.
+Timesteps are sampled with a **uniform** schedule during training. A
+**logit-normal** schedule was also evaluated: it concentrates training on the
+mid-range timesteps (sharper texture, lower FID) but **under-samples the
+high-noise timesteps that fix the global structure** of the volume. In practice
+the logit-normal model produced ~20% of samples with a **quantised global
+position shift** (±32 image voxels = 1 voxel at the UNet bottleneck): the brain
+was translated, or in one case cropped by the volume border. Switching to uniform
+timesteps removed the artefact entirely (0% shifted), at the cost of a few FID
+points but with **lower MMD and higher, more realistic diversity** (see the
+trade-off note). A linear learning-rate **warmup** is applied to the LDM optimiser.
+
+> **Trade-off (timestep schedule).** logit-normal: FID 21.8, but MMD 0.019,
+> MS-SSIM 0.895, and ~20% of samples globally mis-positioned. uniform: FID 27.2,
+> MMD 0.009, MS-SSIM 0.947, and 0% mis-positioned. The final model uses
+> **uniform**: it wins on every metric except FID, and a translated or cropped
+> volume is unusable regardless of texture sharpness. Notably, **neither FID nor
+> MS-SSIM detects the shift** on its own (FID aggregates slices across the volume;
+> a global translation leaves the slice set largely unchanged), so the artefact
+> was found by visual inspection and quantified with a dedicated geometric test
+> (`tests/check_degenerate_samples.py`).
 
 > **Note on the VAE.** This iteration also experimented with a linear LR warmup
 > for the VAE. It produced worse reconstructions than the previous step-wise
@@ -64,9 +80,11 @@ v = v_bad + w * (v_good - v_bad)
 ```
 
 where `v_good` is the selected (best) checkpoint, `v_bad` an earlier checkpoint of
-the same run, and `w` the guidance scale. This sharpens fine detail on
+the same run, and `w` the guidance scale (2.0). This sharpens fine detail on
 unconditional samples without requiring an EMA of the weights. Autoguidance is on
-by default and can be disabled to produce a baseline.
+by default and can be disabled (`--no_autoguidance`) to produce a baseline — the
+mode used to attribute the positioning artefact to the training schedule rather
+than to sampling.
 
 ### Data
 
@@ -86,7 +104,13 @@ Synthetic volumes are compared against real ones using three metrics:
   recent medical-imaging FID literature).
 - **MMD** — Maximum Mean Discrepancy, a complementary distributional distance.
 - **MS-SSIM** (intra-set) — pairwise multi-scale SSIM among synthetic samples vs
-  among real samples, used to detect mode collapse (diversity check).
+  among real samples, used to detect mode collapse (diversity check). Note: only
+  interpretable once samples are correctly positioned — a global translation
+  lowers MS-SSIM independently of anatomical diversity.
+- **Geometric QC** (`tests/check_degenerate_samples.py`) — measures, per volume,
+  the tissue fraction, centroid and bounding-box extent, and flags samples outside
+  the (tightly aligned) real distribution. Catches the global-position artefact
+  that FID and MS-SSIM miss.
 
 A **checkpoint-selection** routine selects the best LDM checkpoint by FID in two
 phases: (1) a coarse pass evaluates every checkpoint *without* autoguidance to
@@ -94,6 +118,28 @@ rank them and produce a FID-vs-epoch curve; (2) the top-K checkpoints are
 re-evaluated *with* autoguidance, and a bar chart compares FID with vs without
 guidance. The final reported metrics are computed by `eval.py` on the volumes
 generated with autoguidance, i.e. the final generation configuration.
+
+### Results (final model: uniform timesteps, autoguidance w=2.0)
+
+| Reference | FID 2.5D | MMD | MS-SSIM (synth / real) | Mis-positioned |
+|-----------|---------:|------:|:---------------------:|---------------:|
+| test (102 hold-out) | 27.18 | 0.0089 | 0.947 / 0.936 | 0% |
+| all (1007)          | 26.57 | 0.0089 | 0.947 / 0.936 | — |
+
+Per-plane FID (test): XY 27.0 / YZ 30.9 / ZX 23.6 — the sagittal plane (YZ)
+remains the hardest, consistent with inter-subject anatomical variability.
+
+**Comparison of timestep schedules** (both with autoguidance, w=2.0):
+
+| Model | FID | MMD | MS-SSIM synth | Mis-positioned |
+|-------|----:|------:|:-------------:|---------------:|
+| logit-normal | **21.8** | 0.019 | 0.895 | ~20% |
+| **uniform** (final) | 27.2 | **0.009** | **0.947** | **0%** |
+| v2 baseline | ~39 | — | — | 0% |
+
+The uniform model improves FID by ~30% over the baseline and, versus the
+logit-normal variant, wins on every metric except FID while removing the global
+positioning artefact.
 
 ---
 
@@ -130,7 +176,8 @@ generated with autoguidance, i.e. the final generation configuration.
 │   ├── run_encode.sh
 │   ├── run_train_ldm.sh
 │   ├── run_checkpoint_selection.sh
-│   ├── run_sample.sh
+│   ├── run_sample.sh               # generation with autoguidance
+│   ├── run_sample_noag.sh          # baseline generation without autoguidance
 │   └── run_eval.sh
 │
 ├── notebooks/                      # Analysis & visualisation
@@ -141,7 +188,8 @@ generated with autoguidance, i.e. the final generation configuration.
 │
 ├── tests/                          # Smoke tests & checkpoint inspection
 │   ├── check_best_model_vae.py     # inspect a VAE checkpoint
-│   ├── check_best_model_ldm.py     # inspect an LDM checkpoint (scale_factor, NaN/Inf)
+│   ├── check_best_model_ldm.py     # inspect an LDM checkpoint (per-channel scale/mean, NaN/Inf)
+│   ├── check_degenerate_samples.py # geometric QC: detect globally mis-positioned samples
 │   ├── test_dataset.py             # VAE image dataset
 │   ├── test_vae.py                 # VAE model
 │   ├── test_vae_reconstruction.py  # VAE reconstructions + SSIM/PSNR
