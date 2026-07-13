@@ -20,7 +20,7 @@
     },
     "paths": {
         "embedding_base_dir": "./data/processed/embeddings_v4",
-        "model_dir": "./outputs/models_v4",
+        "model_dir": "./outputs/models_v5",
         "model_filename": "ldm_unet_best.pt",
         "splits_path": "./data/splits/embeddings_dataset_v4.json",
         "trained_autoencoder_path": "./outputs/models_v2/autoencoder_best.pt"
