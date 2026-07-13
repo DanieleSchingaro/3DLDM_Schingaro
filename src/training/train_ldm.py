@@ -25,6 +25,26 @@ MODIFICHE v4:
       combinata col decay polinomiale, prima assente.
     - timestep logit-normal: NON qui, si attiva da config_network.json
       (sample_method="logit-normal"); lo scheduler lo legge da li'.
+
+MODIFICHE v5 (CURRICULUM a due fasi sul timestep sampling):
+    - Il campionamento dei timestep evolve durante il training:
+        fase 1 (epoca < curriculum_switch_epoch): UNIFORM
+            -> consolida la struttura GLOBALE (posizione/scala del cervello),
+               che si stabilisce ai timestep ad alto rumore (i "bordi" della
+               traiettoria), poco campionati dal logit-normal.
+        fase 2 (epoca >= curriculum_switch_epoch): LOGIT-NORMAL (loc=0, scale=1)
+            -> affina la TEXTURE (mid-range della traiettoria), recuperando la
+               nitidezza persa con l'uniform puro.
+    - Motivazione: nella v4 il logit-normal statico dava FID migliore ma ~20% di
+      campioni con traslazione globale (la struttura globale, appresa male, si
+      quantizzava a 1 voxel del bottleneck UNet). L'uniform statico azzerava le
+      traslazioni ma perdeva nitidezza. Il curriculum mira ad avere entrambe.
+    - Implementazione: si commuta l'attributo mutabile noise_scheduler.sample_method
+      all'inizio di ogni epoca (nessuna ricostruzione dello scheduler). Lo switch
+      e' NETTO. curriculum_switch_epoch e' letto dal config (default 500).
+    - Riferimento: curriculum sui timestep per flow matching (2026), che mostra
+      come una distribuzione non-stazionaria (struttura->dettaglio) superi sia
+      uniform sia logit-normal statici.
 """
 
 import os
@@ -170,10 +190,12 @@ def train_one_epoch(
     unet.train()
     loss_acc=torch.zeros(2, dtype=torch.float, device=device)
 
-    #barra di avanzamento solo su rank 0
+    #barra di avanzamento solo su rank 0. Mostra anche il regime timestep attivo
+    #(curriculum v5): utile per verificare nel log che lo switch avvenga a
+    #curriculum_switch_epoch.
     progress_bar=tqdm(
         train_loader,
-        desc=f"Epoch {epoch+1}",
+        desc=f"Epoch {epoch+1} [{noise_scheduler.sample_method}]",
         ncols=100,
         disable=(local_rank!=0),
     )
@@ -313,6 +335,12 @@ def main():
     save_interval=train_cfg.get("save_interval", 100)  # checkpoint periodici
     amp=train_cfg.get("amp", True)
     lr_warmup_epochs=train_cfg.get("lr_warmup_epochs", 50)  # v4: warmup optimizer LDM
+    # v5: epoca di switch del curriculum sul timestep sampling.
+    #   epoca <  switch -> uniform      (consolida la struttura globale)
+    #   epoca >= switch -> logit-normal (affina la texture)
+    # Se assente (0 o mancante) il curriculum e' DISATTIVATO e vale il sample_method
+    # del config_network (comportamento v4).
+    curriculum_switch_epoch=train_cfg.get("curriculum_switch_epoch", 0)
 
      #path (config_diff_model["paths"])
     paths=config["paths"]
@@ -344,6 +372,14 @@ def main():
     #scheduler RFlow
     noise_scheduler=setup_noise_scheduler(sched_cfg)
 
+    # v5: metodo di fase 2 del curriculum. In fase 1 si forza "uniform"; in fase 2
+    # si ripristina il metodo del config (tipicamente "logit-normal"). Cosi' il
+    # config_network resta la fonte di verita' per loc/scale del logit-normal.
+    phase2_method=sched_cfg.get("sample_method", "uniform")
+    if is_main and curriculum_switch_epoch>0:
+        print(f"[curriculum v5] fase1 (epoca<{curriculum_switch_epoch}): uniform | "
+              f"fase2 (epoca>={curriculum_switch_epoch}): {phase2_method}")
+
     #optimizer (MAISI: Adam)
     optimizer=torch.optim.Adam(params=unet.parameters(), lr=lr)
     total_steps=n_epochs*len(train_loader)
@@ -368,6 +404,17 @@ def main():
 
     #loop di training
     for epoch in range(n_epochs):
+        # v5 CURRICULUM: commuta il regime di campionamento dei timestep in base
+        # all'epoca corrente. Lo scheduler legge sample_method (e loc/scale) a ogni
+        # chiamata di sample_timesteps(), quindi basta settare l'attributo mutabile
+        # prima di iniziare l'epoca (switch a granularita' di epoca, netto).
+        if curriculum_switch_epoch>0:
+            desired="uniform" if epoch<curriculum_switch_epoch else phase2_method
+            if noise_scheduler.sample_method!=desired:
+                noise_scheduler.sample_method=desired
+                if is_main:
+                    print(f"[curriculum v5] epoca {epoch+1}: timestep sampling -> {desired}")
+
         train_loss=train_one_epoch(
             epoch, unet, train_loader, optimizer, lr_scheduler,
             loss_pt, scaler, latent_mean, scale_factor, noise_scheduler,
