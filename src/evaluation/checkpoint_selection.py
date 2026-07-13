@@ -104,7 +104,7 @@ def build_unet(config_net, device):
 
 
 def load_unet(config_net, ckpt_path, device):
-    """Carica UNet + scale_factor + latent_mean (v4)."""
+    """Carica UNet + scale_factor + latent_mean (v5)."""
     net=build_unet(config_net, device)
     ckpt=torch.load(ckpt_path, map_location=device, weights_only=False)
     state={k.replace("module.", "", 1): v for k, v in ckpt["unet_state_dict"].items()}
@@ -135,7 +135,7 @@ def load_unet_weights_only(config_net, ckpt_path, device):
 
 
 class ReconModel(torch.nn.Module):
-    """De-normalizza (v4): z/scale_factor + latent_mean, poi decode."""
+    """De-normalizza (v5): z/scale_factor + latent_mean, poi decode."""
     def __init__(self, autoencoder, scale_factor, latent_mean):
         super().__init__()
         self.autoencoder=autoencoder
@@ -364,7 +364,7 @@ def worker_phase1(rank, n_gpus, args, all_epochs, lock):
     (config_net, autoencoder, scheduler, inferer, real_stream,
      latent_shape, steps, spacing, base_seed)=common
 
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4.json")
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v5.json")
     for ep in my_epochs:
         evaluate_one_checkpoint(
             ep, args, config_net, autoencoder, scheduler, inferer, real_stream,
@@ -391,7 +391,7 @@ def worker_phase2(rank, n_gpus, args, refine_jobs, lock):
     (config_net, autoencoder, scheduler, inferer, real_stream,
      latent_shape, steps, spacing, base_seed)=common
 
-    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4_refined.json")
+    results_path=os.path.join(args.work_dir, "fid_by_checkpoint_v5_refined.json")
     for good_ep, bad_ep in my_jobs:
         evaluate_one_checkpoint(
             good_ep, args, config_net, autoencoder, scheduler, inferer, real_stream,
@@ -475,8 +475,8 @@ def main():
     ap.add_argument("--config", type=str, default="configs/config_diff_model.json")
     ap.add_argument("--network", type=str, default="configs/config_network.json")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
-    ap.add_argument("--models_dir", type=str, default="outputs/models_v4")
-    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v4",
+    ap.add_argument("--models_dir", type=str, default="outputs/models_v5")
+    ap.add_argument("--work_dir", type=str, default="outputs/checkpoint_selection_v5",
                     help="dove salvare le immagini temporanee e i JSON dei risultati")
     ap.add_argument("--n_samples", type=int, default=100)
     ap.add_argument("--epochs", type=str, default="100,200,300,400,500,600,700,800,900,1000",
@@ -509,14 +509,14 @@ def main():
     else:
         mp.spawn(worker_phase1, args=(n_gpus, args, all_epochs, lock), nprocs=n_gpus, join=True)
 
-    raw_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4.json")
+    raw_path=os.path.join(args.work_dir, "fid_by_checkpoint_v5.json")
     raw_results=_read_results(raw_path)
     ranked=print_ranking(raw_results, "FASE 1 - CLASSIFICA (senza autoguidance)")
 
     # grafico 1: curva FID-vs-epoca (via plot_fid_curve.py)
     plot_fid_curve(
         json_path=raw_path,
-        save_path=os.path.join("outputs/metrics", "fid_vs_epoch_v4.png"),
+        save_path=os.path.join("outputs/metrics", "fid_vs_epoch_v5.png"),
         title="Selezione checkpoint LDM v4 - FID vs epoca (senza autoguidance)",
     )
 
@@ -543,14 +543,14 @@ def main():
         else:
             mp.spawn(worker_phase2, args=(n_gpus, args, refine_jobs, lock), nprocs=n_gpus, join=True)
 
-        refined_path=os.path.join(args.work_dir, "fid_by_checkpoint_v4_refined.json")
+        refined_path=os.path.join(args.work_dir, "fid_by_checkpoint_v5_refined.json")
         refined_results=_read_results(refined_path)
         print_ranking(refined_results, "FASE 2 - CLASSIFICA (con autoguidance)")
 
         # grafico 2: barre di confronto senza vs con autoguidance
         plot_refined_bars(
             raw_path, refined_path,
-            os.path.join("outputs/metrics", "fid_autoguidance_top_v4.png"),
+            os.path.join("outputs/metrics", "fid_autoguidance_top_v5.png"),
         )
 
 

@@ -2,7 +2,7 @@
 """
 Valutazione delle MRI cerebrali HC sintetiche generate dall'LDM.
 
-Confronta le SINTETICHE (data/synthetic_v4) con le REALI di riferimento:
+Confronta le SINTETICHE (data/synthetic_v5) con le REALI di riferimento:
   - FID 2.5D   (reali vs sintetiche, distribuzionale)
   - MMD        (reali vs sintetiche, distribuzionale)
   - MS-SSIM    diversita' intra-set su sintetiche E reali (mode collapse).
@@ -24,7 +24,7 @@ Esempi:
     python3 -m src.evaluation.eval --real_source test
     python3 -m src.evaluation.eval --real_source all --mmd_max_pairs 100
  
-Risultati in outputs/metrics/eval_<real_source>_v4.json
+Risultati in outputs/metrics/eval_<real_source>_v5.json
 """
 import os 
 import json 
@@ -79,7 +79,7 @@ def build_real_stream(splits_path:str, real_source:str):
 
 def main():
     parser = argparse.ArgumentParser(description="Valutazione MRI HC sintetiche (FID/MMD/MS-SSIM)")
-    parser.add_argument("--synth_dir", type=str, default="data/synthetic_v4")
+    parser.add_argument("--synth_dir", type=str, default="data/synthetic_v5")
     parser.add_argument("--splits", type=str, default="data/splits/dataset.json")
     parser.add_argument("--real_source", type=str, default="test", choices=["test", "all"])
     parser.add_argument("--out_dir", type=str, default="outputs/metrics")
