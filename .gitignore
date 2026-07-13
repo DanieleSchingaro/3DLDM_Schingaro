@@ -51,4 +51,6 @@ outputs/models_v3/*.pth
 outputs/models_v3/*.pt
 outputs/models_v4/*.pth
 outputs/models_v4/*.pt
+outputs/models_v5/*.pth
+outputs/models_v5/*.pt
 outputs/tfevent/
