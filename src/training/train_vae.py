@@ -3,9 +3,8 @@
 Training del VAE per MRI cerebrali T1 skull-stripped
 Basato su NV-Generate-CTMR (NVIDIA, 2026)
 
-# NOTA v4: questo VAE usa warmup lineare del lr (vs gradini di v2).
-# Esito sperimentale: ricostruzione PEGGIORE di v2 (SSIM ~0.85 vs 0.987).
-# La pipeline v4 adotta quindi il VAE v2 per encode/decode; questo codice
+# NOTA v5: questo VAE usa warmup lineare del lr (vs gradini di v2).
+# La pipeline v5 adotta quindi il VAE v2 per encode/decode; questo codice
 # resta come documentazione dell'esperimento, non viene eseguito.
 """
 
@@ -467,7 +466,7 @@ def save_learning_curves(
 
     #salvataggio grafico
     os.makedirs(save_dir, exist_ok=True)
-    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v4.png")
+    curve_path=os.path.join("outputs", "metrics", "learning_curves_vae_v5.png")
     plt.savefig(curve_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
