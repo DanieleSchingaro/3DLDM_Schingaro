@@ -14,8 +14,8 @@ mkdir -p logs
 # Per generare la BASELINE senza autoguidance: aggiungere --no_autoguidance
 # alla riga torchrun e lasciare BAD vuoto.
 # ============================================================
-LDM_CKPT="./outputs/models_v4/ldm_unet_epoch900.pt"       # <-- GOOD (FID-best): metti il tuo
-LDM_CKPT_BAD="./outputs/models_v4/ldm_unet_epoch300.pt"   # <-- BAD (~30% del good): metti il tuo
+LDM_CKPT="./outputs/models_v5/ldm_unet_epoch900.pt"       # <-- GOOD (FID-best): metti il tuo
+LDM_CKPT_BAD="./outputs/models_v5/ldm_unet_epoch300.pt"   # <-- BAD (~30% del good): metti il tuo
 GUIDANCE_SCALE=2.0
 
 # numero di campioni da generare (default 100, sovrascrivibile da CLI)
@@ -35,6 +35,6 @@ torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.inference.sample \
     --ldm_ckpt "$LDM_CKPT" \
     --ldm_ckpt_bad "$LDM_CKPT_BAD" \
     --guidance_scale $GUIDANCE_SCALE \
-    2>&1 | tee logs/sample_v4_$(date +%Y%m%d_%H%M).log
+    2>&1 | tee logs/sample_v5_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

@@ -13,6 +13,6 @@ echo "GPU disponibili: $(nvidia-smi --list-gpus | wc -l)"
 
 MASTER_PORT=$((29000 + RANDOM % 2000))
 torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.training.train_vae \
-    2>&1 | tee logs/train_vae_v4_$(date +%Y%m%d_%H%M).log
+    2>&1 | tee logs/train_vae_v5_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

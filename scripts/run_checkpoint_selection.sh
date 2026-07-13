@@ -25,11 +25,11 @@ echo "Campioni per checkpoint: $N_SAMPLES"
 echo "Refine top: $REFINE_TOP | Guidance scale: $GUIDANCE_SCALE"
 
 python3 -m src.evaluation.checkpoint_selection \
-    --models_dir outputs/models_v4 \
-    --work_dir outputs/checkpoint_selection_v4 \
+    --models_dir outputs/models_v5 \
+    --work_dir outputs/checkpoint_selection_v5 \
     --n_samples $N_SAMPLES \
     --refine_top $REFINE_TOP \
     --guidance_scale $GUIDANCE_SCALE \
-    2>&1 | tee logs/cksel_v4_$(date +%Y%m%d_%H%M).log
+    2>&1 | tee logs/cksel_v5_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

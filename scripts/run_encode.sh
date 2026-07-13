@@ -13,7 +13,7 @@ echo "GPU disponibili: $(nvidia-smi --list-gpus | wc -l)"
 MASTER_PORT=$((29000 + RANDOM % 2000))
 torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.data.encode_dataset \
     --checkpoint outputs/models_v2/autoencoder_best.pt \
-    --embedding_dir data/processed/embeddings_v4 \
-    2>&1 | tee logs/encode_v4_$(date +%Y%m%d_%H%M).log
+    --embedding_dir data/processed/embeddings_v5 \
+    2>&1 | tee logs/encode_v5_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"

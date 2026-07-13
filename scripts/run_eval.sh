@@ -12,6 +12,6 @@ echo "Reali di riferimento: $REAL_SOURCE"
 
 # la valutazione usa 1 sola GPU (niente torchrun): FID/MMD/MS-SSIM non sono in DDP
 python3 -m src.evaluation.eval --real_source $REAL_SOURCE \
-    2>&1 | tee logs/eval_${REAL_SOURCE}_v4_$(date +%Y%m%d_%H%M).log
+    2>&1 | tee logs/eval_${REAL_SOURCE}_v5_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"
