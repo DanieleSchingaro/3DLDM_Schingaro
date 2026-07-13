@@ -8,6 +8,7 @@
         "val_interval": 50,
         "save_interval": 100,
         "lr_warmup_epochs": 50,
+        "curriculum_switch_epoch": 500,
         "amp": true
     },
     "diffusion_unet_inference": {
