@@ -11,8 +11,8 @@ import json
 from collections import Counter
 
 SPLITS_PATH="data/splits/dataset.json"
-EMBEDDINGS_DIR="data/processed/embeddings_v4"
-OUTPUT_PATH="data/splits/embeddings_dataset_v4.json"
+EMBEDDINGS_DIR="data/processed/embeddings_v5"
+OUTPUT_PATH="data/splits/embeddings_dataset_v5.json"
 
 #mapping per fonte dataset
 DATASET_SOURCES={

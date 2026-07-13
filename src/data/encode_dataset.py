@@ -175,7 +175,7 @@ def encode_dataset(
     (all_files[local_rank::world_size]): nessuna sovrapposizione, nessun
     conflitto di scrittura (ogni rank scrive .npz diversi).
     Struttura output:
-    data/processed/embeddings_v4/
+    data/processed/embeddings_v5/
         hc_adni_brain_mask/
             file1_emb.npz
             ...
@@ -276,7 +276,7 @@ def main():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="outputs/models_v2/autoencoder_best.pt",
+        default="outputs/models_v5/autoencoder_best.pt",
         help="Path al checkpoint del VAE",
     )
     parser.add_argument(
@@ -288,7 +288,7 @@ def main():
     parser.add_argument(
         "--embedding_dir",
         type=str,
-        default="data/processed/embeddings_v4",
+        default="data/processed/embeddings_v5",
         help="Cartella dove salvare gli embedding",
     )
     args=parser.parse_args()
