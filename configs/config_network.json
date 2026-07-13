@@ -136,7 +136,7 @@
         "num_train_timesteps": 1000,
         "use_discrete_timesteps": false,
         "use_timestep_transform": true,
-        "sample_method": "uniform",
+        "sample_method": "logit-normal",
         "loc":0.0,
         "scale":1.0
     },
