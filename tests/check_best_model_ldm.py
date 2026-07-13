@@ -41,7 +41,7 @@ def _check_tensor_health(name, t):
 
 
 #checkpoint
-checkpoint_path=Path("outputs/models_v4/ldm_unet_best.pt")
+checkpoint_path=Path("outputs/models_v5/ldm_unet_best.pt")
 if not checkpoint_path.exists():
     print(f"File non trovato: {checkpoint_path}")
     exit(1)

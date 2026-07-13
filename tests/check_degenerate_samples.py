@@ -22,11 +22,11 @@ basato su mediana e MAD, insensibile agli outlier stessi).
 Uso:
     # sintetiche con autoguidance vs reali del test set
     python3 -m tests.check_degenerate_samples \
-        --synth_dir data/synthetic_v4 \
+        --synth_dir data/synthetic_v5 \
         --splits data/splits/dataset.json --real_source test
 
     # confronto fra due generazioni (es. con vs senza guida)
-    python3 -m tests.check_degenerate_samples --synth_dir data/synthetic_v4_w15 ...
+    python3 -m tests.check_degenerate_samples --synth_dir data/synthetic_v5_w15 ...
 
 Nota: usa gli stessi transform di eval.py per i reali, cosi' reali e sintetiche
 vivono nello stesso spazio (256^3, [0,1]) e le misure sono confrontabili.
@@ -54,20 +54,20 @@ def geometry_stats(vol: np.ndarray, thr: float):
       ex,ey,ez  -> estensione della bounding box normalizzata in [0,1] per asse
     Se il volume e' vuoto, ritorna NaN (verra' segnalato come degenere).
     """
-    mask = _tissue_mask(vol, thr)
-    n = int(mask.sum())
-    if n == 0:
+    mask=_tissue_mask(vol, thr)
+    n=int(mask.sum())
+    if n==0:
         return dict(frac=0.0, cx=np.nan, cy=np.nan, cz=np.nan,
                     ex=np.nan, ey=np.nan, ez=np.nan, n_vox=0)
 
-    frac = n / mask.size
-    idx = np.argwhere(mask)                       # [n,3]
-    shape = np.array(vol.shape, dtype=float)
+    frac=n/mask.size
+    idx=np.argwhere(mask)                       # [n,3]
+    shape=np.array(vol.shape, dtype=float)
 
-    centroid = idx.mean(axis=0) / shape           # in [0,1]
-    lo = idx.min(axis=0)
-    hi = idx.max(axis=0)
-    extent = (hi - lo + 1) / shape                # in [0,1]
+    centroid=idx.mean(axis=0) / shape           # in [0,1]
+    lo=idx.min(axis=0)
+    hi=idx.max(axis=0)
+    extent=(hi - lo + 1)/shape                # in [0,1]
 
     return dict(frac=frac,
                 cx=centroid[0], cy=centroid[1], cz=centroid[2],
@@ -83,10 +83,10 @@ def robust_z(values, med, mad):
     trascinate dagli outlier (a differenza di media e std), che e' esattamente
     cio' che serve quando gli outlier sono l'oggetto della ricerca.
     """
-    scale = 1.4826 * mad
-    if scale < 1e-9:
-        scale = 1e-9
-    return (values - med) / scale
+    scale=1.4826 * mad
+    if scale<1e-9:
+        scale=1e-9
+    return (values-med)/scale
 
 
 def load_real(item, tf_cache={}):
@@ -94,11 +94,11 @@ def load_real(item, tf_cache={}):
     from src.data.transforms import get_encoding_transforms
     if "tf" not in tf_cache:
         tf_cache["tf"] = get_encoding_transforms()
-    path = item["image"] if isinstance(item, dict) else item
-    out = tf_cache["tf"]({"image": path})
-    img = out["image"]
+    path=item["image"] if isinstance(item, dict) else item
+    out=tf_cache["tf"]({"image": path})
+    img=out["image"]
     if hasattr(img, "as_tensor"):
-        img = img.as_tensor()
+        img=img.as_tensor()
     return img.squeeze(0).float().numpy()
 
 
@@ -107,8 +107,8 @@ def load_synth(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Quantifica i campioni sintetici degeneri")
-    ap.add_argument("--synth_dir", type=str, default="data/synthetic_v4")
+    ap=argparse.ArgumentParser(description="Quantifica i campioni sintetici degeneri")
+    ap.add_argument("--synth_dir", type=str, default="data/synthetic_v5")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
     ap.add_argument("--real_source", type=str, default="test", choices=["test", "all"])
     ap.add_argument("--thr", type=float, default=0.05,
@@ -122,30 +122,30 @@ def main():
 
     # ---------- reali: distribuzione di riferimento ----------
     with open(args.splits) as f:
-        splits = json.load(f)
-    if args.real_source == "test":
-        real_items = splits["test"]
+        splits=json.load(f)
+    if args.real_source=="test":
+        real_items=splits["test"]
     else:
-        real_items = splits["training"] + splits["validation"] + splits["test"]
-    if args.n_real > 0:
-        real_items = real_items[: args.n_real]
+        real_items=splits["training"] + splits["validation"] + splits["test"]
+    if args.n_real>0:
+        real_items=real_items[: args.n_real]
 
     print(f"Riferimento reale: {len(real_items)} volumi ({args.real_source})")
-    real_stats = []
+    real_stats=[]
     for i, it in enumerate(real_items):
-        vol = load_real(it)
+        vol=load_real(it)
         real_stats.append(geometry_stats(vol, args.thr))
-        if (i + 1) % 20 == 0:
+        if (i + 1)%20==0:
             print(f"  reali processati: {i+1}/{len(real_items)}")
 
-    keys = ["frac", "cx", "cy", "cz", "ex", "ey", "ez"]
-    R = {k: np.array([s[k] for s in real_stats], dtype=float) for k in keys}
-    ref = {}
+    keys=["frac", "cx", "cy", "cz", "ex", "ey", "ez"]
+    R={k: np.array([s[k] for s in real_stats], dtype=float) for k in keys}
+    ref={}
     for k in keys:
-        v = R[k][np.isfinite(R[k])]
-        med = float(np.median(v))
-        mad = float(np.median(np.abs(v - med)))
-        ref[k] = (med, mad)
+        v=R[k][np.isfinite(R[k])]
+        med=float(np.median(v))
+        mad=float(np.median(np.abs(v - med)))
+        ref[k]=(med, mad)
 
     print("\n=== DISTRIBUZIONE DI RIFERIMENTO (reali) ===")
     print(f"{'metrica':<8}{'mediana':>12}{'MAD':>12}")
@@ -159,22 +159,22 @@ def main():
         return
     print(f"\nSintetiche: {len(synth_files)} volumi da {args.synth_dir}")
 
-    results = []
+    results=[]
     for i, p in enumerate(synth_files):
-        vol = load_synth(p)
-        s = geometry_stats(vol, args.thr)
+        vol=load_synth(p)
+        s=geometry_stats(vol, args.thr)
 
         # z robusto su ogni proprieta'; il campione e' degenere se ALMENO una sfora
-        zs = {}
+        zs={}
         for k in keys:
-            val = s[k]
+            val=s[k]
             if not np.isfinite(val):
-                zs[k] = float("inf")
+                zs[k]=float("inf")
             else:
-                zs[k] = float(abs(robust_z(np.array([val]), *ref[k])[0]))
-        worst_key = max(zs, key=lambda k: zs[k])
-        worst_z = zs[worst_key]
-        degenerate = (s["n_vox"] == 0) or (worst_z > args.z_thr)
+                zs[k]=float(abs(robust_z(np.array([val]), *ref[k])[0]))
+        worst_key=max(zs, key=lambda k: zs[k])
+        worst_z=zs[worst_key]
+        degenerate=(s["n_vox"] == 0) or (worst_z > args.z_thr)
 
         results.append(dict(
             file=os.path.basename(p),
@@ -188,7 +188,7 @@ def main():
             print(f"  sintetiche processate: {i+1}/{len(synth_files)}")
 
     # ---------- report ----------
-    bad = [r for r in results if r["degenerate"]]
+    bad=[r for r in results if r["degenerate"]]
     print("\n" + "=" * 68)
     print(f"CAMPIONI DEGENERI: {len(bad)} / {len(results)}  "
           f"({100.0*len(bad)/len(results):.1f}%)   [soglia |z| > {args.z_thr}]")
@@ -196,27 +196,27 @@ def main():
     if bad:
         print(f"{'file':<24}{'metrica':<10}{'|z|':>8}{'frac':>10}{'cz':>8}")
         for r in sorted(bad, key=lambda r: -(r["worst_z"] or 1e9)):
-            wz = "inf" if r["worst_z"] is None else f"{r['worst_z']:.2f}"
-            fr = "-" if r["frac"] is None else f"{r['frac']:.4f}"
-            cz = "-" if r["cz"] is None else f"{r['cz']:.3f}"
+            wz="inf" if r["worst_z"] is None else f"{r['worst_z']:.2f}"
+            fr="-" if r["frac"] is None else f"{r['frac']:.4f}"
+            cz="-" if r["cz"] is None else f"{r['cz']:.3f}"
             print(f"{r['file']:<24}{r['worst_metric']:<10}{wz:>8}{fr:>10}{cz:>8}")
 
     # riepilogo delle proprieta' geometriche: sintetiche vs reali
     print("\n=== GEOMETRIA: sintetiche vs reali (mediana) ===")
     print(f"{'metrica':<8}{'reali':>12}{'sintetiche':>14}{'scarto':>12}")
     for k in keys:
-        sv = np.array([r[k] for r in results if r[k] is not None], dtype=float)
-        if sv.size == 0:
+        sv=np.array([r[k] for r in results if r[k] is not None], dtype=float)
+        if sv.size==0:
             continue
-        s_med = float(np.median(sv))
-        r_med = ref[k][0]
+        s_med=float(np.median(sv))
+        r_med=ref[k][0]
         print(f"{k:<8}{r_med:>12.4f}{s_med:>14.4f}{s_med - r_med:>+12.4f}")
 
     print("\nLegenda: frac = frazione di voxel di tessuto (volume); "
           "cx/cy/cz = centroide normalizzato (posizione); "
           "ex/ey/ez = estensione bounding box (scala).")
 
-    out = dict(
+    out=dict(
         synth_dir=args.synth_dir,
         real_source=args.real_source,
         n_synth=len(results),
@@ -233,5 +233,5 @@ def main():
     print(f"\nReport salvato in {args.out_json}")
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()

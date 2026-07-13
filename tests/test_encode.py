@@ -15,7 +15,7 @@ def test_encode():
     logger.info(f"Device: {device}")
 
     #caricamento VAE
-    checkpoint_path="outputs/models_v3/autoencoder_best.pt"
+    checkpoint_path="outputs/models_v5/autoencoder_best.pt"
     autoencoder=load_autoencoder(checkpoint_path, device)
     transforms=get_encoding_transforms()
 
