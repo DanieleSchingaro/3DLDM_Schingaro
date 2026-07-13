@@ -5,7 +5,7 @@ Basato su diff_model_infer.py di NV-Generate-CTMR (MAISI), adattato al caso
 Incondizionato: nessuna modality/region/spacing, solo rumore->denoising->decode.
 
 MODIFICHE v4:
-    - latent_mean PER-CANALE: il training v4 normalizza (z-mean)*scale, quindi in
+    - latent_mean PER-CANALE: il training v5 normalizza (z-mean)*scale, quindi in
       inferenza si de-normalizza z/scale + mean (ReconModel). latent_mean e
       scale_factor sono tensori [1,C,1,1,1] letti dal checkpoint.
     - AUTOGUIDANCE (sostituto EMA per modelli incondizionati): si guida il modello
@@ -45,7 +45,7 @@ from monai.apps.generation.maisi.networks.diffusion_model_unet_maisi import Diff
 #ReconModel -> decodifica il latente in immagine
 class ReconModel(torch.nn.Module):
     """
-    Wrapper che decodifica un latente in immagine de-normalizzando (v4).
+    Wrapper che decodifica un latente in immagine de-normalizzando (v5).
     Il latente generato dall'LDM e' nello spazio normalizzato+centrato
     (z_train = (z - latent_mean) * scale_factor), quindi va de-normalizzato con
     l'operazione inversa: z = z_gen / scale_factor + latent_mean, prima del decoder.
@@ -140,7 +140,7 @@ def build_unet(config_net:dict, device:torch.device):
 def load_unet(config_net:dict, checkpoint_path:str, device:torch.device):
     """
     Carica la UNet di diffusione trainata + scale_factor + latent_mean +
-    num_train_timesteps dal checkpoint dell'LDM (v4).
+    num_train_timesteps dal checkpoint dell'LDM (v5).
     """
     unet=build_unet(config_net, device)
     ckpt=torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -273,13 +273,13 @@ def save_previews(volumes_dir:str, png_dir:str):
 
 
 def main():
-    parser=argparse.ArgumentParser(description="Generazione MRI HC sintetiche con LDM (v4, autoguidance)")
+    parser=argparse.ArgumentParser(description="Generazione MRI HC sintetiche con LDM (v5, autoguidance)")
     parser.add_argument("--config", type=str, default="configs/config_diff_model.json")
     parser.add_argument("--network", type=str, default="configs/config_network.json")
     parser.add_argument("--n_samples", type=int, default=100, help="numero totale di campioni da generare")
-    parser.add_argument("--out_dir", type=str, default="data/synthetic_v4",
+    parser.add_argument("--out_dir", type=str, default="data/synthetic_v5",
                         help="cartella dei volumi .nii.gz sintetici")
-    parser.add_argument("--png_dir", type=str, default="outputs/generated/synthetic_v4",
+    parser.add_argument("--png_dir", type=str, default="outputs/generated/synthetic_v5",
                         help="cartella dei PNG di anteprima")
     parser.add_argument("--no_png", action="store_true", help="se presente, NON genera i PNG di anteprima")
     #checkpoint LDM: il 'good' e' il FID-best da checkpoint_selection (passato a mano)
@@ -315,7 +315,7 @@ def main():
     if args.ldm_ckpt is not None:
         ldm_ckpt=args.ldm_ckpt
     else:
-        ldm_ckpt=os.path.join(paths.get("model_dir", "./outputs/models_v4"),
+        ldm_ckpt=os.path.join(paths.get("model_dir", "./outputs/models_v5"),
                               paths.get("model_filename", "ldm_unet_best.pt"))
 
     #AUTOGUIDANCE: attiva di default (obbligatoria) salvo --no_autoguidance.
