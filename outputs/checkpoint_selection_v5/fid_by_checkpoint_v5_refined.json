@@ -1,0 +1,32 @@
+{
+  "epoch900": {
+    "epoch": 900,
+    "fid_xy": 27.220532799445976,
+    "fid_yz": 30.0847688073095,
+    "fid_zx": 23.86140021309822,
+    "fid_avg": 27.055567273284566,
+    "autoguidance": true,
+    "bad_epoch": 300,
+    "guidance_scale": 2.0
+  },
+  "epoch800": {
+    "epoch": 800,
+    "fid_xy": 25.504268163174743,
+    "fid_yz": 27.259995333938377,
+    "fid_zx": 20.16584660646194,
+    "fid_avg": 24.310036701191688,
+    "autoguidance": true,
+    "bad_epoch": 200,
+    "guidance_scale": 2.0
+  },
+  "epoch1000": {
+    "epoch": 1000,
+    "fid_xy": 26.487011530489696,
+    "fid_yz": 29.862570837547395,
+    "fid_zx": 23.329174471515216,
+    "fid_avg": 26.5595856131841,
+    "autoguidance": true,
+    "bad_epoch": 300,
+    "guidance_scale": 2.0
+  }
+}
