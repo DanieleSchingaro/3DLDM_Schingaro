@@ -41,26 +41,31 @@ channels consistently and centres the target on the noise support. The statistic
 are computed over the whole training set and saved in the checkpoint, so that
 sampling can de-normalise correctly before decoding.
 
-Timesteps are sampled with a **uniform** schedule during training. A
-**logit-normal** schedule was also evaluated: it concentrates training on the
-mid-range timesteps (sharper texture, lower FID) but **under-samples the
-high-noise timesteps that fix the global structure** of the volume. In practice
-the logit-normal model produced ~20% of samples with a **quantised global
-position shift** (±32 image voxels = 1 voxel at the UNet bottleneck): the brain
-was translated, or in one case cropped by the volume border. Switching to uniform
-timesteps removed the artefact entirely (0% shifted), at the cost of a few FID
-points but with **lower MMD and higher, more realistic diversity** (see the
-trade-off note). A linear learning-rate **warmup** is applied to the LDM optimiser.
+Timesteps are sampled with a **two-phase curriculum**:
 
-> **Trade-off (timestep schedule).** logit-normal: FID 21.8, but MMD 0.019,
-> MS-SSIM 0.895, and ~20% of samples globally mis-positioned. uniform: FID 27.2,
-> MMD 0.009, MS-SSIM 0.947, and 0% mis-positioned. The final model uses
-> **uniform**: it wins on every metric except FID, and a translated or cropped
-> volume is unusable regardless of texture sharpness. Notably, **neither FID nor
-> MS-SSIM detects the shift** on its own (FID aggregates slices across the volume;
-> a global translation leaves the slice set largely unchanged), so the artefact
-> was found by visual inspection and quantified with a dedicated geometric test
-> (`tests/check_degenerate_samples.py`).
+- **phase 1** (epoch < `curriculum_switch_epoch`, default 500): **uniform** — the
+  model consolidates the *global structure* (position and scale of the brain),
+  which is established at the high-noise timesteps.
+- **phase 2** (epoch >= switch): **logit-normal** (loc=0, scale=1) — the model
+  refines *texture* (the mid-range of the trajectory).
+
+This resolves a trade-off observed in an earlier iteration. A **static
+logit-normal** schedule gave the lowest FID but produced ~20% of samples with a
+**quantised global position shift** (±32 image voxels = 1 voxel at the UNet
+bottleneck): it under-samples the high-noise timesteps that set global structure.
+A **static uniform** schedule removed the artefact (0% shifted) but lost texture
+sharpness (higher FID). The curriculum keeps a uniform base long enough to fix
+the geometry, then switches to logit-normal to recover sharpness — obtaining both.
+A linear learning-rate **warmup** is applied to the LDM optimiser.
+
+> **Trade-off, resolved (timestep schedule).** static logit-normal: FID 21.8, but
+> MMD 0.019, MS-SSIM 0.895, ~20% mis-positioned. static uniform: FID 27.2, MMD
+> 0.009, MS-SSIM 0.947, 0% mis-positioned. **curriculum (final): FID 24.3, MMD
+> 0.009, MS-SSIM 0.949, 0% mis-positioned** — it recovers about half of the
+> logit-normal sharpness advantage at no geometric cost. The artefact is invisible
+> to both FID and MS-SSIM (a global translation leaves the slice set largely
+> unchanged), and was found by visual inspection and quantified with a dedicated
+> geometric test (`tests/check_degenerate_samples.py`).
 
 > **Note on the VAE.** This iteration also experimented with a linear LR warmup
 > for the VAE. It produced worse reconstructions than the previous step-wise
@@ -119,29 +124,31 @@ re-evaluated *with* autoguidance, and a bar chart compares FID with vs without
 guidance. The final reported metrics are computed by `eval.py` on the volumes
 generated with autoguidance, i.e. the final generation configuration.
 
-### Results (final model: uniform timesteps, autoguidance w=2.0)
+### Results (final model: two-phase curriculum, autoguidance w=2.0, epoch 800)
 
 | Reference | FID 2.5D | MMD | MS-SSIM (synth / real) | Mis-positioned |
 |-----------|---------:|------:|:---------------------:|---------------:|
-| test (102 hold-out) | 27.18 | 0.0089 | 0.947 / 0.936 | 0% |
-| all (1007)          | 26.57 | 0.0089 | 0.947 / 0.936 | — |
+| test (102 hold-out) | 24.31 | 0.0089 | 0.949 / 0.936 | 0% |
+| all (1007)          | 23.86 | 0.0089 | 0.949 / 0.936 | 0% |
 
-Per-plane FID (test): XY 27.0 / YZ 30.9 / ZX 23.6 — the sagittal plane (YZ)
-remains the hardest, consistent with inter-subject anatomical variability.
+Per-plane FID (test): XY 25.5 / YZ 27.3 / ZX 20.2 — the sagittal plane (YZ)
+remains the hardest, but the gap is the smallest across all configurations.
 
-**Comparison of timestep schedules** (both with autoguidance, w=2.0):
+**Timestep schedule comparison** (all with autoguidance, w=2.0):
 
-| Model | FID | MMD | MS-SSIM synth | Mis-positioned |
-|-------|----:|------:|:-------------:|---------------:|
-| logit-normal | **21.8** | 0.019 | 0.895 | ~20% |
-| **uniform** (final) | 27.2 | **0.009** | **0.947** | **0%** |
+| Schedule | FID | MMD | MS-SSIM synth | Mis-positioned |
+|----------|----:|------:|:-------------:|---------------:|
+| static logit-normal | 21.8 | 0.019 | 0.895 | ~20% |
+| static uniform | 27.2 | 0.0089 | 0.947 | 0% |
+| **curriculum** (final) | 24.3 | 0.0089 | 0.949 | 0% |
 | v2 baseline | ~39 | — | — | 0% |
 
-The uniform model improves FID by ~30% over the baseline and, versus the
-logit-normal variant, wins on every metric except FID while removing the global
-positioning artefact.
+The curriculum improves FID by ~38% over the baseline and resolves the trade-off
+between the two static schedules: it recovers about half of the logit-normal
+sharpness advantage while keeping the uniform's perfect geometry (0% mis-positioned,
+verified with and without guidance).
 
----
+-
 
 ## Repository structure
 
