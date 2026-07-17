@@ -5,7 +5,7 @@ cd /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro
 mkdir -p logs
 
 # ============================================================
-# PARAMETRI v4 (autoguidance) - MODIFICA QUI PRIMA DI LANCIARE
+# PARAMETRI v5 (autoguidance) - MODIFICA QUI PRIMA DI LANCIARE
 # ------------------------------------------------------------
 # GOOD: checkpoint FID-best ottenuto da checkpoint_selection.
 # BAD : checkpoint 'cattivo' per l'autoguidance = epoca precoce
@@ -14,8 +14,8 @@ mkdir -p logs
 # Per generare la BASELINE senza autoguidance: aggiungere --no_autoguidance
 # alla riga torchrun e lasciare BAD vuoto.
 # ============================================================
-LDM_CKPT="./outputs/models_v5/ldm_unet_epoch900.pt"       # <-- GOOD (FID-best): metti il tuo
-LDM_CKPT_BAD="./outputs/models_v5/ldm_unet_epoch300.pt"   # <-- BAD (~30% del good): metti il tuo
+LDM_CKPT="./outputs/models_v5/ldm_unet_epoch800.pt"       # <-- GOOD (FID-best): metti il tuo
+LDM_CKPT_BAD="./outputs/models_v5/ldm_unet_epoch200.pt"   # <-- BAD (~30% del good): metti il tuo
 GUIDANCE_SCALE=2.0
 
 # numero di campioni da generare (default 100, sovrascrivibile da CLI)
