@@ -152,7 +152,7 @@ def main():
 
     #salvataggio
     os.makedirs(args.out_dir, exist_ok=True)
-    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_v4.json")
+    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_v5.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nRisultati salvati in {out_path}")
