@@ -1,0 +1,6 @@
+outs:
+- md5: b02f17530dd8c084a3102d93cac0a5c5.dir
+  size: 686389820
+  nfiles: 100
+  hash: md5
+  path: synthetic_v5
