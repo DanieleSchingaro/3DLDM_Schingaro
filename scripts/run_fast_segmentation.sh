@@ -54,8 +54,12 @@ segment_one() {
         return 0
     fi
 
-    singularity exec -B "$REPO":/mnt "$SIF" \
-        fast -t 1 -n 3 -o "/mnt/${out_prefix}" "/mnt/${rel}" \
+    # --pwd /mnt: dentro il container la working dir e' /mnt (= repo montata),
+    # cosi' i path RELATIVI (out_prefix, rel) risolvono correttamente. Senza,
+    # la working dir eredita quella dell'host (/mnt/data/home-ubuntu/...) che
+    # nel container non esiste, e FAST crea cartelle fantasma.
+    singularity exec --pwd /mnt -B "$REPO":/mnt "$SIF" \
+        fast -t 1 -n 3 -o "${out_prefix}" "${rel}" \
         > /dev/null 2>&1
 
     if [ -f "${out_prefix}_pveseg.nii.gz" ]; then
