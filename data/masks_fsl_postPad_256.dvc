@@ -1,0 +1,6 @@
+outs:
+- md5: bb792c7984ebeea69436d686a1ca6f75.dir
+  size: 496339365
+  nfiles: 1007
+  hash: md5
+  path: masks_fsl_postPad_256
