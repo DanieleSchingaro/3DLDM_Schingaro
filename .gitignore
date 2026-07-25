@@ -54,3 +54,4 @@ outputs/models_v4/*.pt
 outputs/models_v5/*.pth
 outputs/models_v5/*.pt
 outputs/tfevent/
+*.sif
