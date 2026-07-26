@@ -380,7 +380,9 @@ def main():
 
     if is_main():
         #grafico finale della loss
-        plot_path=os.path.join(out_dir, "controlnet_loss_curve.png")
+        metrics_dir="outputs/metrics"
+        os.makedirs(metrics_dir, exist_ok=True)
+        plot_path=os.path.join(metrics_dir, "controlnet_loss_curve_v6.png")
         plot_loss_curve(train_hist, val_hist, plot_path)
         mlflow.log_artifact(plot_path)
         print(f"Grafico salvato: {plot_path}")
