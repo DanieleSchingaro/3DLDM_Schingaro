@@ -57,3 +57,5 @@ outputs/tfevent/
 *.sif
 /data/masks_fsl_prePad_181/
 /data/masks_fsl_postPad_256/
+data/controlnet_gen_val/
+data/controlnet_gen_test/
