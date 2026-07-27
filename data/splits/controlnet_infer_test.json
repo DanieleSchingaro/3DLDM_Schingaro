@@ -1,0 +1,1330 @@
+{
+  "training": [
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3851_PPMI_3851_MR_MPRAGE_GRAPPA__br_raw_20131021143159420_111_S204365_I395241_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_129_S_6459_129_S_6459_129_S_6459_Accelerated_Sag_IR-FSPGR_20180627095631_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31197_MR_d0179_sub-OAS31197_sess-d0179_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_098_S_4275_098_S_4275_098_S_4275_Accelerated_Sag_IR-SPGR_20111017090256_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0226_NIFD_1_S_0226_MR_T1_mprage__br_raw_20150519104720078_80_S260498_I493538_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0248_NIFD_1_S_0248_MR_t1_mprage__br_raw_20160902163301918_127_S495952_I772146_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_037_S_4071_037_S_4071_037_S_4071_MPRAGE_20110628095313_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0238_NIFD_1_S_0238_MR_t1_mprage__br_raw_20160902144226204_127_S495765_I771932_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3157_PPMI_3157_MR_MPRAGE_GRAPPA__br_raw_20110707141029201_117_S113900_I243701_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS30340_MR_d0070_sub-OAS30340_sess-d0070_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0109_MR1_OAS1_0109_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3767_PPMI_3767_MR_MPRAGE_GRAPPA__br_raw_20120305192956277_58_S142714_I288146_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3658_PPMI_3658_MR_SAG_T1_3DMPRAGE__br_raw_20120105095245505_30_S135418_I275305_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_021_S_6914_021_S_6914_021_S_6914_Accelerated_Sag_IR-FSPGR_20210316150526_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3350_PPMI_3350_MR_MPRAGE_GRAPPA__br_raw_20110825141117487_101_S117943_I249425_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3952_PPMI_3952_MR_FSPGR_3D_SAG_br_raw_20120206123351711_73_S139752_I282839_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3260_PPMI_3260_MR_SAG_FSPGR_3D_br_raw_20110705124354661_49_S113543_I243217_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_016_S_4638_016_S_4638_016_S_4638_Accelerated_SAG_IR-SPGR_20120521131547_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_136_S_0086_136_S_0086_136_S_0086_MP-RAGE_20060331105457_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31436_MR_d0197_sub-OAS31436_sess-d0197_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_116_S_1249_116_S_1249_116_S_1249_MPRAGE_20070301104357_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31149_MR_d0061_sub-OAS31149_ses-d0061_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_009_S_4337_009_S_4337_009_S_4337_MPRAGE_20111107175248_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_013_S_4580_013_S_4580_013_S_4580_WIP_MPRAGE_SENSE_20120405161707_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31279_MR_d0020_sub-OAS31279_sess-d0020_run-01_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_082_S_4224_082_S_4224_082_S_4224_MPRAGE_20110921103713_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0057_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0235_NIFD_1_S_0235_MR_t1_mprage__br_raw_20160902135026421_139_S495650_I771798_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3300_PPMI_3300_MR_MPRAGE_GRAPPA__br_raw_20110406121231839_28_S103327_I226405_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3428_PPMI_3428_MR_SAG_T1_3D_FSPGR__br_raw_20130424111103124_66_S187825_I368571_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0169_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS30105_MR_d0056_sub-OAS30105_ses-d0056_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3112_PPMI_3112_MR_MPRAGE_GRAPPA__br_raw_20110707120749387_83_S113800_I243563_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_136_S_4269_136_S_4269_136_S_4269_MPRAGE_SENSE_20111031094722_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0455_MR1_OAS1_0455_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_016_S_4121_016_S_4121_016_S_4121_Accelerated_SAG_IR-SPGR_20110715155606_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0258_NIFD_1_S_0258_MR_t1_mprage__br_raw_20160902185324821_8_S496141_I772367_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_024_S_4084_024_S_4084_024_S_4084_MPRAGE_20110616094908_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0372_MR1_OAS1_0372_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0130_MR1_OAS1_0130_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31339_MR_d0189_sub-OAS31339_sess-d0189_run-01_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_009_S_0842_009_S_0842_009_S_0842_MP_RAGE_20060907092258_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_156459_DE-IDENTIFIED_156459_Anon_20221129085906_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_128_S_4609_128_S_4609_128_S_4609_MPRAGE_20120404180644_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0126_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0193_NIFD_1_S_0193_MR_T1_mprage__br_raw_20140831192859408_133_S229161_I441493_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3215_PPMI_3215_MR_AX_T1__br_raw_20130528140353135_26_S190598_I373991_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0232_NIFD_1_S_0232_MR_t1_mprage__br_raw_20170814132459630_50_S495585_I771721_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_021_S_4276_021_S_4276_021_S_4276_Accelerated_Sag_IR-SPGR_20111007103702_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0260_NIFD_1_S_0260_MR_t1_mprage__br_raw_20160902193301261_114_S496198_I772429_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_021_S_0159_021_S_0159_021_S_0159_MP-RAGE_20060130134201_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_4067_PPMI_4067_MR_MPRAGE_GRAPPA__br_raw_20130124162624797_128_S180862_I356067_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0181_NIFD_1_S_0181_MR_T1_mprage__br_raw_20140831180135275_20_S229052_I441369_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31411_MR_d0053_sub-OAS31411_sess-d0053_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_109_S_0876_109_S_0876_109_S_0876_MPRAGE_20060919132048_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_036_S_0672_036_S_0672_036_S_0672_MPRAGE_20060721073333_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3811_PPMI_3811_MR_MPRAGE_GRAPPA__br_raw_20111201221720500_29_S131583_I269591_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_1_S_0185_NIFD_1_S_0185_MR_T1_mprage__br_raw_20140908141723242_153_S229125_I441453_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3967_PPMI_3967_MR_FSPGR_3D_SAG_br_raw_20130321143932326_15_S184930_I364011_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31257_MR_d0097_sub-OAS31257_sess-d0097_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_037_S_0327_037_S_0327_037_S_0327_MP-RAGE_20060419091815_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_153233_DE-IDENTIFIED_153233_SAG_3D_T1-weighted_20221128071328_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31407_MR_d0098_sub-OAS31407_sess-d0098_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_002_S_4262_002_S_4262_002_S_4262_MPRAGE_SENSE_20111005072430_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3357_PPMI_3357_MR_MPRAGE_GRAPPA__br_raw_20110825145608084_108_S117958_I249447_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_187759_DE-IDENTIFIED_187759_Anon_20230228094714_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_131_S_0441_131_S_0441_131_S_0441_MP-RAGE_20060524102135_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0086_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0083_MR1_OAS1_0083_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_114_S_6429_114_S_6429_114_S_6429_Accelerated_Sagittal_MPRAGE_20180830154900_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_2_S_0005_DE-IDENTIFIED_2_S_0005_Sag_3D_MP-RAGE_20110405101348_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_4004_PPMI_4004_MR_MPRAGE_GRAPPA__br_raw_20120106134255631_49_S135620_I275717_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31269_MR_d0031_sub-OAS31269_sess-d0031_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS30663_MR_d0051_sub-OAS30663_ses-d0051_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31308_MR_d0093_sub-OAS31308_sess-d0093_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_094_S_4234_094_S_4234_094_S_4234_Accelerated_SAG_IR-SPGR_20111018093911_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0017_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_006_S_0681_006_S_0681_006_S_0681_MP-RAGE_20060831134125_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0121_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0280_MR1_OAS1_0280_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_116_S_4483_116_S_4483_116_S_4483_MPRAGE_20120125110749_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_109_S_1014_109_S_1014_109_S_1014_MPRAGE_20061228113515_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_021_S_0337_021_S_0337_021_S_0337_MP-RAGE_20060328100350_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_006_S_4357_006_S_4357_006_S_4357_WIP_MPRAGE_SENSE_20111128104816_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_006_S_4485_006_S_4485_006_S_4485_WIP_MPRAGE_SENSE_20120201092932_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_2_S_0012_DE-IDENTIFIED_2_S_0012_Sag_3D_MP-RAGE_20110906132600_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS2_0090_MR1_mpr-1.nifti_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_019_S_4367_019_S_4367_019_S_4367_MPRAGE_SENSE_20111130095714_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS1_0428_MR1_OAS1_0428_MR1_mpr-1_anon_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_3468_PPMI_3468_MR_3D_SAG_br_raw_20120302122637790_91_S142359_I287580_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31361_MR_d0238_sub-OAS31361_sess-d0238_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31208_MR_d0094_sub-OAS31208_sess-d0094_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_021_S_6918_021_S_6918_021_S_6918_Accelerated_Sag_IR-FSPGR_20210322112439_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31352_MR_d0131_sub-OAS31352_sess-d0131_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_029_S_0845_029_S_0845_029_S_0845_MP-RAGE_20060912122245_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_116_S_0360_116_S_0360_116_S_0360_MP-RAGE_20060502112655_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_127_S_0260_127_S_0260_127_S_0260_MP-RAGE_20060501130654_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_131_S_0123_131_S_0123_131_S_0123_MP-RAGE_20060119075044_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS31365_MR_d0033_sub-OAS31365_sess-d0033_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_006_S_0484_006_S_0484_006_S_0484_MP-RAGE_20060621133610_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_023_S_0031_023_S_0031_023_S_0031_MPRAGE_20051028121356_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "label": "data/masks_fsl_postPad_256/mni_brain_OAS30435_MR_d0054_sub-OAS30435_sess-d0054_T1w_pveseg.nii.gz",
+      "dim": [
+        256,
+        256,
+        256
+      ],
+      "spacing": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ]
+}
