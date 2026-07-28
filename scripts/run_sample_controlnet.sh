@@ -21,8 +21,11 @@ if [ -z "$CKPT" ] || [ -z "$JSON" ] || [ -z "$OUTDIR" ]; then
     exit 1
 fi
 
-source /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro/.venv/bin/activate
-cd /mnt/data/home-ubuntu/work/medical-3D-Rflow-Maisi-Schingaro
+# path della repo ricavato dalla posizione dello script (robusto: niente hardcoding)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$REPO/.venv/bin/activate"
+cd "$REPO"
 mkdir -p logs
 
 echo "Start: $(date)"
