@@ -7,8 +7,6 @@
 # (range clinico + rumore leggero, seed deterministico). La preparazione e' SOLO per
 # la segmentazione: i volumi salvati in [0,1] restano intatti per le metriche FID.
 #
-
-
 # Uso:
 #   bash scripts/run_segment_generated.sh <gen_dir>
 # Esempio:
