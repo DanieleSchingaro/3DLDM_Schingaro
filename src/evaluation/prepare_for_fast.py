@@ -7,11 +7,15 @@ Markov) non separa i 3 tessuti e collassa a 2 classi (variance nan). Si porta il
 volume a range clinico (x1000) e si aggiunge un rumore gaussiano leggero, con seed
 DETERMINISTICO derivato dal nome del file (riproducibile), per rompere l'omogeneita'.
 
+noise_std e' parametrico perche' alcuni volumi resistono al valore di default e
+richiedono piu' rumore: run_segment_generated.sh ritenta con sigma crescente.
+
 Questo NON altera i volumi salvati: opera su una copia temporanea usata solo per FAST.
 I volumi in [0,1] restano intatti per le metriche di realismo (FID/MMD/MS-SSIM).
 
-Uso (singolo file):
-    python3 src/evaluation/prepare_for_fast.py --in vol_synth.nii.gz --out vol_prep.nii.gz
+Uso:
+    python3 -m src.evaluation.prepare_for_fast --in vol_synth.nii.gz --out vol_prep.nii.gz
+    python3 -m src.evaluation.prepare_for_fast --in vol.nii.gz --out prep.nii.gz --noise_std 20
 """
 
 import argparse
@@ -27,8 +31,8 @@ def prepare_volume(in_path, out_path, scale=1000.0, noise_std=10.0, brain_thr=0.
     d2=d.copy()
     d2[brain]=d[brain]*scale
 
-    #seed deterministico dal nome file -> riproducibile
-    key=in_path.split("/")[-1]
+    #seed deterministico dal nome file + sigma -> riproducibile e diverso a ogni retry
+    key=f"{in_path.split('/')[-1]}_{noise_std}"
     seed=int(hashlib.md5(key.encode()).hexdigest()[:8], 16)
     rng=np.random.default_rng(seed)
     d2[brain]+=rng.normal(0.0, noise_std, brain.sum()).astype(np.float32)
