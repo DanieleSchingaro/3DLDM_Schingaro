@@ -1,0 +1,8 @@
+=== DSC [val_epoch80] su data/controlnet_gen_val/epoch80 ===
+coppie valide: 100 | mancanti: 0
+valuto 100 coppie su cuda...
+----------------------------------------
+Mean DSC:        0.6747
+Generalized DSC: 0.6408
+per-volume: mean=0.6747 std=0.0228 min=0.6142 max=0.7547
+JSON salvato: outputs/metrics/dsc_val_epoch80.json
