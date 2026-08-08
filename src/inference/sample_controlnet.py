@@ -190,7 +190,7 @@ def generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
         synthetic=inferer(network=recon_model, inputs=image) if inferer is not None else recon_model(image)
 
     data=synthetic.squeeze().cpu().float().numpy()
-    data=np.clip(data, 0.0, 1.0)
+    data=np.clip(data, 0.0, None)   #niente tetto: il clip a 1.0 creava un muro di voxel saturi che rompe FAST
     return data
 
 def save_nifti(data, spacing, output_path):
