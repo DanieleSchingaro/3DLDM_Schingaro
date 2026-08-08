@@ -2,16 +2,13 @@
 # Ri-segmenta con FAST i volumi generati dalla ControlNet, per il calcolo del DSC.
 # Per ogni <base>_synth.nii.gz produce <base>_synth_pveseg.nii.gz nella stessa cartella.
 #
-# I volumi decodificati (in [0,1], troppo lisci) non sono segmentabili da FAST cosi'
-# come sono: la stima EM diverge (variance nan) e la maschera collassa a 2 classi.
-# Ogni volume viene quindi preparato da src/evaluation/prepare_for_fast.py (range
-# clinico + rumore leggero, seed deterministico) prima di FAST. La preparazione e'
-# SOLO per la segmentazione: i volumi in [0,1] restano intatti per le metriche FID.
+# I volumi generati NON vengono piu' clippati a 1.0 nell'inferenza (il clip creava un
+# muro di voxel saturi che rompeva la stima EM di FAST). Nel loro range nativo FAST li
+# segmenta DIRETTAMENTE, senza preparazione ne' rumore artificiale.
 #
-# ROBUSTEZZA: alcuni volumi resistono al rumore di default (sigma=10) e collassano
-# comunque. Lo script verifica che la maschera abbia 4 classi e, in caso contrario,
-# RITENTA automaticamente con sigma crescente (10 -> 20 -> 30). A fine esecuzione
-# riporta quanti volumi sono riusciti al primo colpo, quanti con retry, quali falliti.
+# FALLBACK: se un volume dovesse comunque collassare (meno di 4 classi), si ritenta con
+# la preparazione di src/evaluation/prepare_for_fast.py (range clinico + rumore leggero)
+# a sigma crescente. E' un'eccezione, non la norma.
 #
 # Uso (dalla radice della repo):
 #   bash scripts/run_segment_generated.sh data/controlnet_gen_val/epoch100
@@ -21,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
 SIF=~/containers/fsl.sif
 NPROC=12
-SIGMAS="10 20 30"        # rumore: default, poi retry crescenti
+FALLBACK_SIGMAS="10 20 30"
 
 GENDIR_ARG="$1"
 if [ -z "$GENDIR_ARG" ]; then
@@ -43,7 +40,6 @@ STATUS_DIR="$GENDIR_ABS/_fast_status"
 mkdir -p "$PREP_DIR" "$STATUS_DIR"
 
 echo "Start: $(date)"
-echo "Repo:   $REPO"
 echo "GenDir: $GENDIR_REL"
 
 mapfile -t VOLS < <(ls "$GENDIR_ABS"/*_synth.nii.gz 2>/dev/null)
@@ -55,47 +51,51 @@ seg_one() {
     local base
     base=$(basename "$vol" _synth.nii.gz)
     local out_rel="${GENDIR_REL}/${base}_synth"
-    local prep="$PREP_DIR/${base}_prep.nii.gz"
-    local prep_rel="${GENDIR_REL}/_fast_prep/${base}_prep.nii.gz"
 
     # gia' fatto e valido? salta
-    if [ -f "$REPO/${out_rel}_pveseg.nii.gz" ]; then
-        if python3 -m src.evaluation.check_mask_classes --mask "$REPO/${out_rel}_pveseg.nii.gz" --quiet; then
-            echo "skip" > "$STATUS_DIR/${base}.status"
-            return 0
-        fi
+    if [ -f "$REPO/${out_rel}_pveseg.nii.gz" ] && \
+       python3 -m src.evaluation.check_mask_classes --mask "$REPO/${out_rel}_pveseg.nii.gz" --quiet; then
+        echo "skip" > "$STATUS_DIR/${base}.status"
+        return 0
     fi
 
-    local attempt=0
-    for sigma in $SIGMAS; do
-        attempt=$((attempt+1))
+    # --- tentativo PRINCIPALE: FAST diretto sul volume nativo (nessuna preparazione) ---
+    singularity exec -B "$REPO":/mnt "$SIF" \
+        fast -t 1 -n 3 -o "/mnt/${out_rel}" "/mnt/${GENDIR_REL}/${base}_synth.nii.gz" > /dev/null 2>&1 || true
+    rm -f "$REPO/${out_rel}_seg.nii.gz" "$REPO/${out_rel}_mixeltype.nii.gz" \
+          "$REPO/${out_rel}_pve_"*.nii.gz 2>/dev/null
+    if [ -f "$REPO/${out_rel}_pveseg.nii.gz" ] && \
+       python3 -m src.evaluation.check_mask_classes --mask "$REPO/${out_rel}_pveseg.nii.gz" --quiet; then
+        echo "ok diretto" > "$STATUS_DIR/${base}.status"
+        return 0
+    fi
+
+    # --- FALLBACK: preparazione con rumore crescente ---
+    local prep="$PREP_DIR/${base}_prep.nii.gz"
+    local prep_rel="${GENDIR_REL}/_fast_prep/${base}_prep.nii.gz"
+    for sigma in $FALLBACK_SIGMAS; do
         python3 -m src.evaluation.prepare_for_fast --in "$vol" --out "$prep" --noise_std "$sigma"
         singularity exec -B "$REPO":/mnt "$SIF" \
             fast -t 1 -n 3 -o "/mnt/${out_rel}" "/mnt/${prep_rel}" > /dev/null 2>&1 || true
-        # pulizia output extra di FAST
         rm -f "$REPO/${out_rel}_seg.nii.gz" "$REPO/${out_rel}_mixeltype.nii.gz" \
               "$REPO/${out_rel}_pve_"*.nii.gz 2>/dev/null
-        # la maschera ha 4 classi?
         if [ -f "$REPO/${out_rel}_pveseg.nii.gz" ] && \
            python3 -m src.evaluation.check_mask_classes --mask "$REPO/${out_rel}_pveseg.nii.gz" --quiet; then
-            echo "ok sigma=$sigma attempt=$attempt" > "$STATUS_DIR/${base}.status"
+            echo "ok fallback sigma=$sigma" > "$STATUS_DIR/${base}.status"
             rm -f "$prep"
             return 0
         fi
     done
 
-    # nessun sigma ha funzionato
     echo "FAILED" > "$STATUS_DIR/${base}.status"
     rm -f "$prep"
     return 0
 }
 export -f seg_one
-export REPO SIF GENDIR_REL GENDIR_ABS PREP_DIR STATUS_DIR SIGMAS
+export REPO SIF GENDIR_REL GENDIR_ABS PREP_DIR STATUS_DIR FALLBACK_SIGMAS
 
 printf "%s\n" "${VOLS[@]}" | xargs -P "$NPROC" -I {} bash -c 'seg_one "$@"' _ {} &
 XPID=$!
-
-# progresso ogni 60s finche' xargs lavora
 while kill -0 $XPID 2>/dev/null; do
     DONE=$(ls "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
     echo "  progresso: $DONE/$TOT   ($(date +%H:%M:%S))"
@@ -103,31 +103,28 @@ while kill -0 $XPID 2>/dev/null; do
 done
 wait $XPID || true
 
-# riepilogo
-OK1=$(grep -l "sigma=10" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
-RETRY=$(grep -lE "sigma=(20|30)" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
+DIRETTO=$(grep -l "ok diretto" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
+FALLBACK=$(grep -l "ok fallback" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
 SKIP=$(grep -l "skip" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
 FAIL=$(grep -l "FAILED" "$STATUS_DIR"/*.status 2>/dev/null | wc -l)
 NPVE=$(ls "$GENDIR_ABS"/*_synth_pveseg.nii.gz 2>/dev/null | wc -l)
 
 echo ""
 echo "=== RIEPILOGO ==="
-echo "  maschere prodotte : $NPVE/$TOT"
-echo "  ok al primo colpo : $OK1"
-echo "  ok dopo retry     : $RETRY"
-echo "  gia' presenti     : $SKIP"
-echo "  FALLITI           : $FAIL"
-if [ "$FAIL" -gt 0 ]; then
-    echo "  volumi falliti:"
-    grep -l "FAILED" "$STATUS_DIR"/*.status 2>/dev/null | while read f; do
-        echo "    - $(basename "$f" .status)"
-    done
-fi
-if [ "$RETRY" -gt 0 ]; then
-    echo "  volumi che hanno richiesto rumore maggiore:"
-    grep -lE "sigma=(20|30)" "$STATUS_DIR"/*.status 2>/dev/null | while read f; do
+echo "  maschere prodotte  : $NPVE/$TOT"
+echo "  FAST diretto (ok)  : $DIRETTO"
+echo "  serviti da fallback: $FALLBACK"
+echo "  gia' presenti      : $SKIP"
+echo "  FALLITI            : $FAIL"
+if [ "$FALLBACK" -gt 0 ]; then
+    echo "  volumi che hanno richiesto il fallback:"
+    grep -l "ok fallback" "$STATUS_DIR"/*.status 2>/dev/null | while read f; do
         echo "    - $(basename "$f" .status): $(cat "$f")"
     done
+fi
+if [ "$FAIL" -gt 0 ]; then
+    echo "  volumi falliti:"
+    grep -l "FAILED" "$STATUS_DIR"/*.status 2>/dev/null | while read f; do echo "    - $(basename "$f" .status)"; done
 fi
 
 rmdir "$PREP_DIR" 2>/dev/null || true

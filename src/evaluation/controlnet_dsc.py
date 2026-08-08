@@ -12,8 +12,16 @@ mean/generalized DSC, numero di coppie e il DSC per-volume (per vedere la distri
 non solo la media). Utile sia per la checkpoint selection (su validation) sia per la
 valutazione finale (su test).
 
+Lo stesso script misura anche il TETTO della pipeline: confrontando la maschera-condizione
+con la ri-segmentazione del REALE DECODIFICATO (--gen_suffix _realdec_pveseg.nii.gz) si
+ottiene il DSC massimo ottenibile, che nessun modello generativo puo' superare.
+
 Uso:
+    #DSC dei generati
     python3 src/evaluation/controlnet_dsc.py --gen_dir data/controlnet_gen_val/epoch100 --tag val_epoch100
+    #tetto della pipeline
+    python3 src/evaluation/controlnet_dsc.py --gen_dir data/tetto --tag tetto \
+        --gen_suffix _realdec_pveseg.nii.gz
 """
 
 import os
@@ -27,7 +35,8 @@ from monai.data import Dataset, DataLoader
 from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, EnsureTyped, AsDiscreted
 from monai.metrics import DiceMetric, GeneralizedDiceScore
 
-def evaluate(gen_dir, num_classes=4, batch_size=1, num_workers=1, logger=None):
+def evaluate(gen_dir, num_classes=4, batch_size=1, num_workers=1, logger=None,
+             gen_suffix="_synth_pveseg.nii.gz"):
     log=logger or logging.getLogger(__name__)
 
     cond_files=sorted(Path(gen_dir).glob("*_condmask.nii.gz"))
@@ -39,7 +48,7 @@ def evaluate(gen_dir, num_classes=4, batch_size=1, num_workers=1, logger=None):
     missing=0
     for cond in cond_files:
         base=cond.name.replace("_condmask.nii.gz", "")
-        gen=Path(gen_dir)/f"{base}_synth_pveseg.nii.gz"
+        gen=Path(gen_dir)/f"{base}{gen_suffix}"
         if gen.exists():
             data_dicts.append({"cond":str(cond), "gen":str(gen)})
             names.append(base)
@@ -109,6 +118,11 @@ def main():
     ap.add_argument("--gen_dir", required=True, help="cartella coi generati + ri-segmentazioni + condmask")
     ap.add_argument("--tag", required=True, help="etichetta per i file di output, es. val_epoch100 o test_epoch80")
     ap.add_argument("--num_classes", type=int, default=4)
+    ap.add_argument("--gen_suffix", default="_synth_pveseg.nii.gz",
+                    help="suffisso della maschera da confrontare con _condmask. "
+                         "Default: _synth_pveseg.nii.gz (generati). "
+                         "Per misurare il TETTO della pipeline usare _realdec_pveseg.nii.gz "
+                         "(reale decodificato: DSC massimo ottenibile).")
     ap.add_argument("--metrics_dir", default="outputs/metrics", help="cartella dei JSON delle metriche")
     args=ap.parse_args()
 
@@ -121,7 +135,8 @@ def main():
     logger=logging.getLogger(__name__)
 
     logger.info(f"=== DSC [{args.tag}] su {args.gen_dir} ===")
-    result=evaluate(args.gen_dir, num_classes=args.num_classes, logger=logger)
+    result=evaluate(args.gen_dir, num_classes=args.num_classes, logger=logger,
+                    gen_suffix=args.gen_suffix)
 
     with open(json_path, "w") as f:
         json.dump(result, f, indent=2)
