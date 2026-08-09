@@ -1,0 +1,8 @@
+=== DSC [test_epoch100] su data/controlnet_gen_test/epoch100 ===
+coppie valide: 102 | mancanti: 0
+valuto 102 coppie su cuda...
+----------------------------------------
+Mean DSC:        0.6776
+Generalized DSC: 0.6407
+per-volume: mean=0.6776 std=0.0254 min=0.5929 max=0.7620
+JSON salvato: outputs/metrics/dsc_test_epoch100.json
