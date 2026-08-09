@@ -296,7 +296,8 @@ and hence ceiling — is higher.
 │   ├── 02_vae_reconstruction.ipynb
 │   ├── 03_ldm_generation.ipynb
 │   ├── 04_evaluation.ipynb
-│   └── 05_controlnet.ipynb
+│   ├── 05_controlnet_generation.ipynb
+│   └── 06_controlnet_evaluation.ipynb
 │
 ├── tests/                          # Smoke tests & checkpoint inspection
 │   ├── check_best_model_vae.py     # inspect a VAE checkpoint
