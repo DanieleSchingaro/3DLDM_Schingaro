@@ -109,6 +109,8 @@ def load_synth(path):
 def main():
     ap=argparse.ArgumentParser(description="Quantifica i campioni sintetici degeneri")
     ap.add_argument("--synth_dir", type=str, default="data/synthetic_v5")
+    ap.add_argument("--pattern", type=str, default="hc_synth_*.nii.gz",
+                    help="glob dei volumi sintetici. Per la ControlNet: \"*_synth.nii.gz\"")
     ap.add_argument("--splits", type=str, default="data/splits/dataset.json")
     ap.add_argument("--real_source", type=str, default="test", choices=["test", "all"])
     ap.add_argument("--thr", type=float, default=0.05,
@@ -153,7 +155,9 @@ def main():
         print(f"{k:<8}{ref[k][0]:>12.4f}{ref[k][1]:>12.4f}")
 
     # ---------- sintetiche ----------
-    synth_files = sorted(glob.glob(os.path.join(args.synth_dir, "hc_synth_*.nii.gz")))
+    synth_files = sorted(glob.glob(os.path.join(args.synth_dir, args.pattern)))
+    #esclude le maschere di segmentazione: non sono volumi di intensita'
+    synth_files = [f for f in synth_files if "_pveseg" not in f and "_condmask" not in f]
     if not synth_files:
         print(f"Nessun volume in {args.synth_dir}")
         return
