@@ -1,10 +1,23 @@
 # 3D Latent Diffusion Model for Synthetic Brain MRI
 
-Unconditional generation of synthetic T1-weighted, skull-stripped brain MRI of
-healthy controls (HC), using a two-stage **3D Latent Diffusion Model (LDM)** with
-a **Rectified Flow** scheduler. The architecture follows NVIDIA's
-**NV-Generate-CTMR / MAISI** design, adapted and trained from scratch on a
-brain-MRI dataset.
+Synthesis of T1-weighted, skull-stripped brain MRI of healthy controls (HC) with a
+two-stage **3D Latent Diffusion Model (LDM)** and a **Rectified Flow** scheduler,
+extended with a **3D ControlNet** for *conditional* generation. The architecture
+follows NVIDIA's **NV-Generate-CTMR / MAISI** design, adapted and trained from
+scratch on a brain-MRI dataset.
+
+The project has two parts:
+
+1. **Unconditional generation** — the LDM samples a brain volume from Gaussian
+   noise, with no anatomical constraint.
+2. **Conditional generation (ControlNet)** — a ControlNet is trained *on top of the
+   frozen LDM* and steers generation to follow a given tissue segmentation mask
+   (white matter / grey matter / CSF).
+
+Unlike most ControlNet work in this domain, the base LDM here is **not** a
+pre-trained foundation model: it is trained from scratch on 805 volumes. The
+ControlNet therefore also probes how well conditional control transfers to a
+data-scarce, in-house diffusion backbone.
 
 The goal is to produce realistic 3D brain volumes that can augment data-limited
 neuroimaging studies, while preserving the anatomical variability of real scans.
@@ -91,6 +104,50 @@ by default and can be disabled (`--no_autoguidance`) to produce a baseline — t
 mode used to attribute the positioning artefact to the training schedule rather
 than to sampling.
 
+### Conditional generation with ControlNet (stage 3)
+
+A third stage adds **spatial control** over the generated anatomy. Following
+ControlNet (Zhang et al., 2023), the trained LDM is **frozen** and a trainable copy
+of its encoder — the ControlNet — receives a *conditioning signal* and injects
+residuals into the frozen UNet at every denoising step. The base model is left
+untouched: only the ControlNet learns to steer generation.
+
+**Conditioning signal.** A 3-tissue segmentation mask (CSF / grey matter / white
+matter, values `{0,1,2,3}` including background) obtained with **FSL-FAST**, run in a
+Singularity container. Masks are computed on the raw `181x217x181` volumes and then
+zero-padded to `256^3`, so that no interpolation alters the discrete labels. The mask
+is bit-plane encoded (`binarize_labels`, 8 channels) before entering the ControlNet.
+
+**Training setup.** The ControlNet is initialised by copying the frozen UNet's encoder
+weights (192 of 230 tensors match; the remaining 38 are the ControlNet-specific
+zero-convolutions and conditioning embedding). Loss and target are identical to the
+LDM (`target = images - noise`, L1). Latents use the same per-channel normalisation
+`(z - latent_mean) * scale_factor`, with values **read from the LDM checkpoint** rather
+than recomputed, since the frozen UNet is calibrated on exactly those statistics.
+Timesteps are sampled **uniformly**: the curriculum is unnecessary here, because the
+frozen model already encodes the global structure and the ControlNet only learns to
+condition it.
+
+**Evaluation — DSC.** Conditional generation is not measured by FID but by how
+faithfully the output respects the requested mask. For each test volume: the real
+mask conditions the generation, the synthetic volume is re-segmented with FSL-FAST,
+and the resulting mask is compared with the conditioning one via **Dice (DSC)**, both
+mean and generalised (`weight_type="square"`).
+
+> **Methodological note — the ceiling of the measurement.** The two masks being
+> compared come from different paths: the conditioning mask is FAST on the *raw*
+> volume, while the generated mask is FAST on a *VAE-decoded* volume, which has lost
+> detail through the `4 x 64^3` bottleneck. To quantify this, real volumes were
+> decoded and re-segmented through the synthetic path and compared against their own
+> conditioning mask: the resulting **DSC of 0.788 is the ceiling** of this evaluation,
+> unreachable by any generative model. Reported DSC values should be read against
+> that ceiling, not against 1.0.
+
+> **Intensity range.** Decoded volumes must be saved **without** clipping to `[0,1]`.
+> Clipping piles up ~0.5M voxels against the upper bound, which breaks FAST's k-means
+> initialisation (`variance nan`) and collapses the segmentation to 2 classes. Saved in
+> their native range, volumes are segmented directly, with no denoising or added noise.
+
 ### Data
 
 The training set combines T1 skull-stripped HC volumes from six public
@@ -148,6 +205,37 @@ between the two static schedules: it recovers about half of the logit-normal
 sharpness advantage while keeping the uniform's perfect geometry (0% mis-positioned,
 verified with and without guidance).
 
+### Results — conditional generation (ControlNet, epoch 100)
+
+The ControlNet is trained for 100 epochs on top of the frozen curriculum LDM
+(`models_v5/ldm_unet_epoch800.pt`). The checkpoint is selected by DSC on the
+**validation** split; the test split is used **once**, with the selected checkpoint,
+for the final number.
+
+| Split | n | Mean DSC | Generalised DSC | std | % of ceiling |
+|-------|--:|---------:|----------------:|----:|-------------:|
+| validation (checkpoint selection) | 100 | 0.677 | 0.643 | 0.023 | 86% |
+| **test (hold-out, final)** | **102** | **0.678** | **0.641** | 0.025 | **86%** |
+| *measurement ceiling* (real vs itself) | 10 | *0.788* | *0.747* | *0.020* | *100%* |
+
+Validation and test agree to within 0.0002, confirming that checkpoint selection did
+not overfit the validation split.
+
+**Checkpoint selection** (validation, DSC):
+
+| Checkpoint | Mean DSC | Generalised DSC |
+|------------|---------:|----------------:|
+| epoch 60 | 0.652 | 0.619 |
+| epoch 80 | 0.675 | 0.641 |
+| **epoch 100** (selected) | **0.677** | **0.643** |
+
+The ControlNet reaches **86% of the achievable ceiling**. The remaining 21% gap
+between the ceiling and 1.0 is structural: it stems from the VAE's lossy compression
+and from comparing masks produced along two different segmentation paths, not from
+the conditioning itself. Absolute DSC values are therefore not directly comparable
+with work built on pre-trained foundation-model VAEs, whose reconstruction fidelity —
+and hence ceiling — is higher.
+
 -
 
 ## Repository structure
@@ -157,7 +245,8 @@ verified with and without guidance).
 ├── configs/                        # JSON configuration files
 │   ├── config_vae.json             # VAE hyperparameters
 │   ├── config_diff_model.json      # LDM / diffusion + inference settings
-│   ├── config_network.json         # Network architecture (VAE + UNet + scheduler)
+│   ├── config_network.json         # Network architecture (VAE + UNet + ControlNet + scheduler)
+│   ├── config_controlnet.json      # ControlNet training / inference settings
 │   └── environment.json            # Paths
 │
 ├── src/
@@ -166,17 +255,28 @@ verified with and without guidance).
 │   │   ├── dataset.py              # dataset for VAE training (image volumes)
 │   │   ├── encode_dataset.py       # encode volumes -> latent embeddings (multi-GPU)
 │   │   ├── embeddings_dataset.py   # build the latent split for the LDM
-│   │   └── ldm_dataset.py          # dataset for LDM training (latents)
+│   │   ├── ldm_dataset.py          # dataset for LDM training (latents)
+│   │   ├── controlnet_dataset.py   # dataset for ControlNet (latent + mask pairs)
+│   │   ├── binarize.py             # bit-plane encoding of the conditioning mask
+│   │   ├── list_volumes.py         # list the raw volumes to segment with FSL-FAST
+│   │   ├── pad_masks_to256.py      # pad FAST masks 181^3 -> 256^3 (no interpolation)
+│   │   ├── create_controlnet_json.py           # training split (latent <-> mask, folds)
+│   │   └── create_controlnet_inference_json.py # inference lists (val / test masks)
 │   ├── training/
 │   │   ├── train_vae.py            # stage 1: VAE training (DDP, multi-GPU)
-│   │   └── train_ldm.py            # stage 2: LDM training (DDP, RFlow, per-channel scale)
+│   │   ├── train_ldm.py            # stage 2: LDM training (DDP, RFlow, per-channel scale)
+│   │   └── train_controlnet.py     # stage 3: ControlNet on the frozen LDM (DDP, MLflow)
 │   ├── inference/
-│   │   └── sample.py               # generate synthetic volumes (autoguidance)
+│   │   ├── sample.py               # generate synthetic volumes (autoguidance)
+│   │   └── sample_controlnet.py    # mask-conditioned generation (ControlNet)
 │   └── evaluation/
 │       ├── metrics.py              # FID 2.5D, MMD, MS-SSIM (lazy VolumeStream)
 │       ├── eval.py                 # run evaluation (real vs synthetic)
 │       ├── checkpoint_selection.py # FID per checkpoint + top-K autoguidance refine
-│       └── plot_fid_curve.py       # plot the FID-vs-epoch curve
+│       ├── plot_fid_curve.py       # plot the FID-vs-epoch curve
+│       ├── controlnet_dsc.py       # DSC (mean + generalised) mask vs re-segmented output
+│       ├── check_mask_classes.py   # verify a segmentation has all 4 tissue classes
+│       └── prepare_for_fast.py     # fallback preparation for volumes FAST cannot segment
 │
 ├── scripts/                        # launch scripts (activate venv, run a stage; torchrun/python3)
 │   ├── run_train_vae.sh
@@ -185,13 +285,18 @@ verified with and without guidance).
 │   ├── run_checkpoint_selection.sh
 │   ├── run_sample.sh               # generation with autoguidance
 │   ├── run_sample_noag.sh          # baseline generation without autoguidance
-│   └── run_eval.sh
+│   ├── run_eval.sh
+│   ├── run_fast_segmentation.sh    # FSL-FAST on the raw volumes -> conditioning masks
+│   ├── run_train_controlnet.sh     # ControlNet training
+│   ├── run_sample_controlnet.sh    # mask-conditioned generation
+│   └── run_segment_generated.sh    # FSL-FAST re-segmentation of generated volumes
 │
 ├── notebooks/                      # Analysis & visualisation
 │   ├── 01_dataset_preprocessing.ipynb
 │   ├── 02_vae_reconstruction.ipynb
 │   ├── 03_ldm_generation.ipynb
-│   └── 04_evaluation.ipynb
+│   ├── 04_evaluation.ipynb
+│   └── 05_controlnet.ipynb
 │
 ├── tests/                          # Smoke tests & checkpoint inspection
 │   ├── check_best_model_vae.py     # inspect a VAE checkpoint
@@ -208,7 +313,11 @@ verified with and without guidance).
 │   ├── raw/                        # original HC volumes per dataset
 │   ├── processed/embeddings/       # encoded latents
 │   ├── splits/                     # train/val/test splits (JSON)
-│   └── synthetic/                  # generated synthetic volumes
+│   ├── synthetic/                  # generated synthetic volumes (unconditional)
+│   ├── masks_fsl_prePad_181/       # FSL-FAST masks at raw resolution (intermediate)
+│   ├── masks_fsl_postPad_256/      # FSL-FAST conditioning masks (256^3)
+│   ├── controlnet_gen_val/         # mask-conditioned volumes, validation (checkpoint selection)
+│   └── controlnet_gen_test/        # mask-conditioned volumes, test (final evaluation)
 │
 ├── outputs/                        # (mostly git-ignored)
 │   ├── models/                     # model checkpoints (.pt)
@@ -328,6 +437,49 @@ bash scripts/run_eval.sh all
 Results are written to `outputs/metrics/`.
 
 ---
+
+### 7. Conditional generation with ControlNet
+
+Requires FSL (used here through a Singularity container, `~/containers/fsl.sif`).
+
+```bash
+# 7a. conditioning masks: FSL-FAST on the raw volumes, then pad to 256^3.
+#     FAST runs at raw resolution (181^3, ~2.4x fewer voxels than 256^3) and the
+#     resulting mask is zero-padded afterwards: padding a label map is exact, while
+#     resampling the volume first would interpolate the intensities.
+python3 src/data/list_volumes.py                 # list the volumes to segment
+bash scripts/run_fast_segmentation.sh            # FSL-FAST -> data/masks_fsl_prePad_181/
+python3 src/data/pad_masks_to256.py              # pad       -> data/masks_fsl_postPad_256/
+
+# 7b. build the ControlNet splits
+python3 src/data/create_controlnet_json.py            # training  (fold 1 = train, fold 0 = val)
+python3 src/data/create_controlnet_inference_json.py  # inference (val / test mask lists)
+
+# 7c. train the ControlNet on the frozen LDM
+bash scripts/run_train_controlnet.sh
+
+# 7d. mask-conditioned generation
+#     args: <controlnet_ckpt> <mask_list_json> <out_dir>
+bash scripts/run_sample_controlnet.sh \
+    outputs/controlnet_v6/controlnet_epoch100.pt \
+    data/splits/controlnet_infer_test.json \
+    data/controlnet_gen_test/epoch100
+
+# 7e. re-segment the generated volumes with FSL-FAST
+bash scripts/run_segment_generated.sh data/controlnet_gen_test/epoch100
+
+# 7f. DSC between the conditioning mask and the re-segmented output
+python3 src/evaluation/controlnet_dsc.py \
+    --gen_dir data/controlnet_gen_test/epoch100 --tag test_epoch100
+```
+
+To measure the **ceiling** of the evaluation (see the methodological note above),
+run the same DSC script over decoded *real* volumes:
+
+```bash
+python3 src/evaluation/controlnet_dsc.py \
+    --gen_dir data/tetto --tag ceiling --gen_suffix _realdec_pveseg.nii.gz
+```
 
 ## Notes
 
