@@ -15,6 +15,8 @@ set -e
 CKPT="$1"
 JSON="$2"
 OUTDIR="$3"
+CS="${4:-1.0}"      # conditioning scale (default 1.0 = comportamento originale)
+STEPS="${5:-30}"    # numero di step di inferenza
 
 if [ -z "$CKPT" ] || [ -z "$JSON" ] || [ -z "$OUTDIR" ]; then
     echo "Uso: bash scripts/run_sample_controlnet.sh <controlnet_ckpt> <json_data_list> <out_dir>"
@@ -32,6 +34,7 @@ echo "Start: $(date)"
 echo "ControlNet: $CKPT"
 echo "Maschere:   $JSON"
 echo "Output:     $OUTDIR"
+echo "cond_scale: $CS | steps: $STEPS"
 
 MASTER_PORT=$((29000 + RANDOM % 2000))
 LOGNAME=$(basename "$OUTDIR")
@@ -40,7 +43,8 @@ torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.inference.sample_c
     --ldm_ckpt outputs/models_v5/ldm_unet_epoch800.pt \
     --json_data_list "$JSON" \
     --out_dir "$OUTDIR" \
-    --num_inference_steps 30 \
+    --num_inference_steps "$STEPS" \
+    --cond_scale "$CS" \
     2>&1 | tee logs/infer_controlnet_${LOGNAME}_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"
