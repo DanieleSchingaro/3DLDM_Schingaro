@@ -1,0 +1,8 @@
+=== DSC [sweep_cs4.0] su data/controlnet_sweep/cs4.0 ===
+coppie valide: 25 | mancanti: 0
+valuto 25 coppie su cuda...
+----------------------------------------
+Mean DSC:        0.7304
+Generalized DSC: 0.6894
+per-volume: mean=0.7304 std=0.0160 min=0.6686 max=0.7484
+JSON salvato: outputs/metrics/dsc_sweep_cs4.0.json
