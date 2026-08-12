@@ -1,0 +1,8 @@
+=== DSC [sweep_schedA] su data/controlnet_sweep/schedA ===
+coppie valide: 25 | mancanti: 0
+valuto 25 coppie su cuda...
+----------------------------------------
+Mean DSC:        0.7165
+Generalized DSC: 0.6763
+per-volume: mean=0.7165 std=0.0152 min=0.6591 max=0.7367
+JSON salvato: outputs/metrics/dsc_sweep_schedA.json
