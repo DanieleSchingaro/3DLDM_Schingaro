@@ -159,7 +159,8 @@ def build_controlnet(config_net, checkpoint_path, device):
 #Generazione di UN volume condizionato su UNA maschera
 @torch.inference_mode()
 def generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
-                 latent_shape, num_inference_steps, device, inferer, cond_scale=1.0):
+                 latent_shape, num_inference_steps, device, inferer, cond_scale=1.0,
+                 cond_scale_end=None):
     """
     mask: [1,1,X,Y,Z] intero (0/1/2/3). Genera un volume che la rispetta.
     A ogni step: controlnet(noisy, t, cond)->residui; unet(noisy, t, +residui)->velocity.
@@ -178,13 +179,20 @@ def generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
     all_next=torch.cat((all_timesteps[1:], torch.tensor([0], dtype=all_timesteps.dtype)))
 
     with autocast("cuda", enabled=True):
-        for t, next_t in zip(all_timesteps, all_next):
+        n_steps=len(all_timesteps)
+        for i, (t, next_t) in enumerate(zip(all_timesteps, all_next)):
+            #scale dello step corrente (costante, oppure lineare start->end)
+            if cond_scale_end is None:
+                cs=cond_scale
+            else:
+                frac=i/max(n_steps-1, 1)
+                cs=cond_scale+(cond_scale_end-cond_scale)*frac
             t_in=torch.Tensor((t,)).to(device)
             down_res, mid_res=controlnet(x=image, timesteps=t_in, controlnet_cond=controlnet_cond)
             #conditioning scale: >1 rafforza l'aderenza alla maschera, <1 la allenta
-            if cond_scale!=1.0:
-                down_res=[r*cond_scale for r in down_res]
-                mid_res=mid_res*cond_scale
+            if cs!=1.0:
+                down_res=[r*cs for r in down_res]
+                mid_res=mid_res*cs
             model_output=unet(
                 x=image, timesteps=t_in,
                 down_block_additional_residuals=down_res,
@@ -225,6 +233,8 @@ def main():
     parser.add_argument("--num_inference_steps", type=int, default=30)
     parser.add_argument("--cond_scale", type=float, default=1.0,
                         help="fattore sui residui della ControlNet (>1 rafforza il condizionamento)")
+    parser.add_argument("--cond_scale_end", type=float, default=None,
+                        help="se dato, il fattore scende linearmente da --cond_scale (primo step) a questo valore (ultimo step)")
     parser.add_argument("--base_seed", type=int, default=42)
     args=parser.parse_args()
 
@@ -241,7 +251,8 @@ def main():
         print(f"LDM (congelato): {args.ldm_ckpt}")
         print(f"ControlNet: {args.controlnet_ckpt}")
         print(f"Maschere: {args.json_data_list}")
-        print(f"cond_scale={args.cond_scale} | steps={args.num_inference_steps}")
+        sched="costante" if args.cond_scale_end is None else f"-> {args.cond_scale_end} (lineare)"
+        print(f"cond_scale={args.cond_scale} {sched} | steps={args.num_inference_steps}")
 
     autoencoder=load_autoencoder(config_net, ae_ckpt, device)
     unet, scale_factor, latent_mean=load_unet(config_net, args.ldm_ckpt, device)
@@ -291,7 +302,7 @@ def main():
         mask=load_mask(mask_path).to(device)
         data=generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
                           latent_shape, args.num_inference_steps, device, inferer,
-                          cond_scale=args.cond_scale)
+                          cond_scale=args.cond_scale, cond_scale_end=args.cond_scale_end)
 
         #salva il volume generato E la maschera-condizione (per il DSC)
         save_nifti(data, spacing, os.path.join(args.out_dir, f"{base}_synth.nii.gz"))
