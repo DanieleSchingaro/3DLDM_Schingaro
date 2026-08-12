@@ -160,7 +160,7 @@ def build_controlnet(config_net, checkpoint_path, device):
 @torch.inference_mode()
 def generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
                  latent_shape, num_inference_steps, device, inferer, cond_scale=1.0,
-                 cond_scale_end=None):
+                 cond_scale_end=None, unet_bad=None, guidance_scale=2.0):
     """
     mask: [1,1,X,Y,Z] intero (0/1/2/3). Genera un volume che la rispetta.
     A ogni step: controlnet(noisy, t, cond)->residui; unet(noisy, t, +residui)->velocity.
@@ -193,11 +193,21 @@ def generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
             if cs!=1.0:
                 down_res=[r*cs for r in down_res]
                 mid_res=mid_res*cs
-            model_output=unet(
+            v_good=unet(
                 x=image, timesteps=t_in,
                 down_block_additional_residuals=down_res,
                 mid_block_additional_residual=mid_res,
             )
+            if unet_bad is not None:
+                #stessi residui della ControlNet anche sulla UNet 'bad'
+                v_bad=unet_bad(
+                    x=image, timesteps=t_in,
+                    down_block_additional_residuals=down_res,
+                    mid_block_additional_residual=mid_res,
+                )
+                model_output=v_bad + guidance_scale*(v_good - v_bad)
+            else:
+                model_output=v_good
             image,_=noise_scheduler.step(model_output, t, image, next_t)
         synthetic=inferer(network=recon_model, inputs=image) if inferer is not None else recon_model(image)
 
@@ -233,6 +243,10 @@ def main():
     parser.add_argument("--num_inference_steps", type=int, default=30)
     parser.add_argument("--cond_scale", type=float, default=1.0,
                         help="fattore sui residui della ControlNet (>1 rafforza il condizionamento)")
+    parser.add_argument("--ldm_ckpt_bad", type=str, default=None,
+                        help="checkpoint LDM 'bad' (epoca precoce dello stesso run) per l'autoguidance")
+    parser.add_argument("--guidance_scale", type=float, default=2.0,
+                        help="peso w dell'autoguidance: v = v_bad + w*(v_good - v_bad)")
     parser.add_argument("--cond_scale_end", type=float, default=None,
                         help="se dato, il fattore scende linearmente da --cond_scale (primo step) a questo valore (ultimo step)")
     parser.add_argument("--base_seed", type=int, default=42)
@@ -256,6 +270,13 @@ def main():
 
     autoencoder=load_autoencoder(config_net, ae_ckpt, device)
     unet, scale_factor, latent_mean=load_unet(config_net, args.ldm_ckpt, device)
+    #UNet 'bad' per l'autoguidance (opzionale)
+    unet_bad=None
+    if args.ldm_ckpt_bad is not None:
+        unet_bad,_,_=load_unet(config_net, args.ldm_ckpt_bad, device)
+        if is_main:
+            print(f"autoguidance: bad={args.ldm_ckpt_bad}, w={args.guidance_scale}")
+
     controlnet=build_controlnet(config_net, args.controlnet_ckpt, device)
     recon_model=ReconModel(autoencoder, scale_factor, latent_mean).to(device)
 
@@ -302,7 +323,8 @@ def main():
         mask=load_mask(mask_path).to(device)
         data=generate_one(mask, controlnet, unet, recon_model, noise_scheduler,
                           latent_shape, args.num_inference_steps, device, inferer,
-                          cond_scale=args.cond_scale, cond_scale_end=args.cond_scale_end)
+                          cond_scale=args.cond_scale, cond_scale_end=args.cond_scale_end,
+                          unet_bad=unet_bad, guidance_scale=args.guidance_scale)
 
         #salva il volume generato E la maschera-condizione (per il DSC)
         save_nifti(data, spacing, os.path.join(args.out_dir, f"{base}_synth.nii.gz"))

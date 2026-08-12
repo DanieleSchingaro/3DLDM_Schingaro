@@ -18,6 +18,8 @@ OUTDIR="$3"
 CS="${4:-1.0}"      # conditioning scale (default 1.0 = comportamento originale)
 STEPS="${5:-30}"    # numero di step di inferenza
 CSEND="${6:-}"      # cond_scale finale (opzionale: attiva lo schedule lineare)
+BAD="${7:-}"        # checkpoint LDM bad (opzionale: attiva l'autoguidance)
+W="${8:-2.0}"       # peso dell'autoguidance
 
 if [ -z "$CKPT" ] || [ -z "$JSON" ] || [ -z "$OUTDIR" ]; then
     echo "Uso: bash scripts/run_sample_controlnet.sh <controlnet_ckpt> <json_data_list> <out_dir>"
@@ -47,6 +49,8 @@ torchrun --nproc_per_node=4 --master_port=$MASTER_PORT -m src.inference.sample_c
     --num_inference_steps "$STEPS" \
     --cond_scale "$CS" \
     ${CSEND:+--cond_scale_end "$CSEND"} \
+    ${BAD:+--ldm_ckpt_bad "$BAD"} \
+    ${BAD:+--guidance_scale "$W"} \
     2>&1 | tee logs/infer_controlnet_${LOGNAME}_$(date +%Y%m%d_%H%M).log
 
 echo "End: $(date)"
