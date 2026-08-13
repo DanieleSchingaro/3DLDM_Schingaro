@@ -1,0 +1,8 @@
+=== DSC [test_v_final] su data/controlnet_gen_test/v_final ===
+coppie valide: 102 | mancanti: 0
+valuto 102 coppie su cuda...
+----------------------------------------
+Mean DSC:        0.7328
+Generalized DSC: 0.6955
+per-volume: mean=0.7328 std=0.0207 min=0.6606 max=0.7951
+JSON salvato: outputs/metrics/dsc_test_v_final.json
