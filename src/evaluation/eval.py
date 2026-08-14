@@ -42,9 +42,26 @@ from src.evaluation.metrics import(
 )
 
 #loader per VolumeStream
+_NORMALIZE_SYNTH=False   #impostato da main() se --normalize
+
 def _load_synth_volume(path:str)->torch.Tensor:
-    """Carica una sintetica .nii.gz"""
+    """
+    Carica una sintetica .nii.gz.
+
+    Con _NORMALIZE_SYNTH i volumi vengono riportati in [0,1] col 99.5 percentile
+    del tessuto, LO STESSO usato da get_encoding_transforms() sui reali. Serve per
+    i volumi della ControlNet, salvati senza clipping (range nativo ~0-1.4): il FID
+    passa per Inception e la MS-SSIM ha data_range=1.0, quindi confrontare volumi
+    fuori scala con reali in [0,1] falserebbe entrambe. Per i volumi dell'LDM
+    (gia' in [0,1]) la normalizzazione non serve e resta disattivata.
+    """
     data=nib.load(path).get_fdata().astype(np.float32)
+    if _NORMALIZE_SYNTH:
+        nz=data[data>0.01]
+        if nz.size>0:
+            p995=np.percentile(nz, 99.5)
+            if p995>0:
+                data=np.clip(data/p995, 0.0, 1.0)
     return torch.from_numpy(data)
 
 #transform delle immagini reali. Riusato dal loader
@@ -62,8 +79,10 @@ def _load_real_volume(item)->torch.Tensor:
         img=img.as_tensor()
     return img.squeeze(0).float() #--> [256,256,256]
 
-def build_synth_stream(synth_dir:str):
-    files=sorted(glob.glob(os.path.join(synth_dir, "hc_synth_*.nii.gz")))
+def build_synth_stream(synth_dir:str, pattern:str="hc_synth_*.nii.gz"):
+    files=sorted(glob.glob(os.path.join(synth_dir, pattern)))
+    #esclude le maschere: non sono volumi di intensita'
+    files=[f for f in files if "_pveseg" not in f and "_condmask" not in f]
     return VolumeStream(files, _load_synth_volume), files 
 
 def build_real_stream(splits_path:str, real_source:str):
@@ -89,16 +108,27 @@ def main():
                         help="max coppie per l'MMD (limita il costo con dataset grandi)")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="slice per batch nell'estrazione feature FID")
+    parser.add_argument("--synth_pattern", type=str, default="hc_synth_*.nii.gz",
+                        help="glob dei volumi sintetici. Per la ControlNet: \"*_synth.nii.gz\"")
+    parser.add_argument("--normalize", action="store_true",
+                        help="normalizza i sintetici in [0,1] col 99.5 percentile (necessario per i volumi ControlNet, salvati senza clipping)")
+    parser.add_argument("--tag", type=str, default="v5",
+                        help="etichetta del file di output: eval_<real_source>_<tag>.json")
     parser.add_argument("--no_drop_empty", action="store_true",
                         help="NON scartare le slice quasi vuote (default: le scarta)")
     args = parser.parse_args()
+
+    global _NORMALIZE_SYNTH
+    _NORMALIZE_SYNTH=args.normalize
 
     device="cuda" if torch.cuda.is_available() else "cpu"
     drop_empty=not args.no_drop_empty
     print(f"Device: {device}")
     print(f"Reali di riferimento: {args.real_source}")
+    print(f"Normalizzazione sintetiche: {'attiva (99.5 perc.)' if args.normalize else 'disattiva'}")
+    print(f"Normalizzazione sintetiche: {'attiva (99.5 perc.)' if args.normalize else 'disattiva'}")
 
-    synth_stream, synth_files=build_synth_stream(args.synth_dir)
+    synth_stream, synth_files=build_synth_stream(args.synth_dir, args.synth_pattern)
     real_stream=build_real_stream(args.splits, args.real_source)
     print(f"Sintetiche: {len(synth_stream)} volumi da {args.synth_dir}")
     print(f"Reali: {len(real_stream)} volumi ({args.real_source}, preprocessate al volo)")
@@ -152,7 +182,7 @@ def main():
 
     #salvataggio
     os.makedirs(args.out_dir, exist_ok=True)
-    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_v5.json")
+    out_path=os.path.join(args.out_dir, f"eval_{args.real_source}_{args.tag}.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nRisultati salvati in {out_path}")
