@@ -148,6 +148,24 @@ mean and generalised (`weight_type="square"`).
 > initialisation (`variance nan`) and collapses the segmentation to 2 classes. Saved in
 > their native range, volumes are segmented directly, with no denoising or added noise.
 
+**Inference-time optimisation.** With the ControlNet trained and the checkpoint selected, two
+inference parameters were tuned on a 25-mask subset of the validation split — **no retraining
+involved**:
+
+- **Conditioning scale.** The ControlNet residuals are multiplied by a factor before being
+  injected into the frozen UNet. DSC grows monotonically with it (0.678 at 1.0, 0.730 at 4.0)
+  with diminishing returns past 2.5; **3.0** was chosen. A time-varying schedule along the
+  denoising trajectory was also tested — increasing and decreasing, at equal mean — and neither
+  beats the constant factor: what matters is the average intensity, not its distribution over
+  steps. This does *not* reproduce, for voxel-level tissue control, the reported prevalence of
+  early denoising steps in 2D layout control.
+- **Autoguidance.** As for the unconditional LDM: `v = v_bad + w*(v_good - v_bad)`, with
+  `bad = epoch 200` and **w = 2.0**. The ControlNet residuals are injected **identically** into
+  both UNets, so the difference between the two predictions isolates denoising quality without
+  touching the conditioning axis. Autoguidance is designed to improve image quality *without*
+  affecting prompt adherence; here it improves the DSC too, plausibly because sharper tissue
+  boundaries are re-segmented more accurately.
+
 ### Data
 
 The training set combines T1 skull-stripped HC volumes from six public
@@ -224,19 +242,60 @@ not overfit the validation split.
 **Checkpoint selection** (validation, DSC):
 
 | Checkpoint | Mean DSC | Generalised DSC |
+|------------|---------:|-------------### Results — conditional generation (ControlNet, v_final)
+
+The ControlNet is trained for 100 epochs on top of the frozen curriculum LDM. The checkpoint is
+selected by DSC on the **validation** split; inference parameters are then tuned on a 25-mask
+validation subset; the **test** split is used only for the final numbers.
+
+**Final configuration (`v_final`):** checkpoint `controlnet_epoch100.pt`, conditioning scale
+**3.0**, autoguidance **w = 2.0** (bad = epoch 200), 30 inference steps.
+
+| Split | n | Mean DSC | Generalised DSC | std | % of ceiling |
+|-------|--:|---------:|----------------:|----:|-------------:|
+| test — standard inference (`cond_scale=1`, no guidance) | 102 | 0.678 | 0.641 | 0.025 | 86% |
+| validation — `v_final` | 100 | 0.734 | 0.699 | 0.020 | 93% |
+| **test — `v_final` (final)** | **102** | **0.733** | **0.696** | 0.021 | **93%** |
+| *measurement ceiling* (real vs itself) | 10 | *0.788* | *0.747* | *0.020* | *100%* |
+
+Validation and test agree to within 0.001, so tuning the inference parameters on a validation
+subset did not overfit. Inference-time optimisation alone is worth **+0.055 DSC**, with no
+retraining, and also tightens the per-volume spread.
+
+**Checkpoint selection** (validation, standard inference):
+
+| Checkpoint | Mean DSC | Generalised DSC |
 |------------|---------:|----------------:|
 | epoch 60 | 0.652 | 0.619 |
 | epoch 80 | 0.675 | 0.641 |
 | **epoch 100** (selected) | **0.677** | **0.643** |
 
-The ControlNet reaches **86% of the achievable ceiling**. The remaining 21% gap
-between the ceiling and 1.0 is structural: it stems from the VAE's lossy compression
-and from comparing masks produced along two different segmentation paths, not from
-the conditioning itself. Absolute DSC values are therefore not directly comparable
-with work built on pre-trained foundation-model VAEs, whose reconstruction fidelity —
-and hence ceiling — is higher.
+**Realism and diversity** — same metrics as the unconditional model, 102 conditioned volumes vs
+the 102 real test volumes:
 
--
+| Metric | LDM (unconditional) | ControlNet `v_final` |
+|--------|--------------------:|---------------------:|
+| FID 2.5D (mean) | 24.31 | **22.55** |
+| FID XY / YZ / ZX | 25.5 / 27.3 / 20.2 | **21.7 / 23.3 / 22.6** |
+| MMD | 0.0089 | **0.0085** |
+| MS-SSIM synth / real | 0.949 / 0.936 | **0.939 / 0.936** |
+
+Conditioned volumes are **more** realistic than unconditional ones: with the anatomy constrained,
+the model no longer has to invent global structure and its capacity goes into texture. The
+sagittal plane — consistently the hardest across every LDM version — is no longer an outlier: the
+three planes span 1.6 FID points instead of 7.1. MS-SSIM sits 0.003 from the real volumes
+(against 0.013 unconditionally), so conditioning does not flatten anatomical variety.
+
+**Geometric QC (test, 102 volumes):** 0% mis-positioned samples (largest centroid shift 3.4
+voxels), no truncated volumes, tissue fraction 0.1102 against 0.1102 for the real volumes.
+
+The ControlNet reaches **93% of the achievable ceiling**. The remaining 21% between the ceiling
+and 1.0 is structural: it stems from the VAE's lossy compression and from comparing masks
+produced along two different segmentation paths, not from the conditioning itself. Absolute DSC
+values are therefore not directly comparable with work built on pre-trained foundation-model
+VAEs, whose reconstruction fidelity — and hence ceiling — is higher. FID, MMD and MS-SSIM depend
+on the chosen feature extractor (InceptionV3 2.5D here) and are meaningful only for internal
+comparisons within this work.
 
 ## Repository structure
 
@@ -318,7 +377,9 @@ and hence ceiling — is higher.
 │   ├── masks_fsl_prePad_181/       # FSL-FAST masks at raw resolution (intermediate)
 │   ├── masks_fsl_postPad_256/      # FSL-FAST conditioning masks (256^3)
 │   ├── controlnet_gen_val/         # mask-conditioned volumes, validation (checkpoint selection)
-│   └── controlnet_gen_test/        # mask-conditioned volumes, test (final evaluation)
+│   └── controlnet_gen_test/        # mask-conditioned volumes, test
+│       ├── epoch100/               #   standard inference (baseline)
+│       └── v_final/                #   final configuration
 │
 ├── outputs/                        # (mostly git-ignored)
 │   ├── models/                     # model checkpoints (.pt)
@@ -459,19 +520,24 @@ python3 src/data/create_controlnet_inference_json.py  # inference (val / test ma
 # 7c. train the ControlNet on the frozen LDM
 bash scripts/run_train_controlnet.sh
 
-# 7d. mask-conditioned generation
-#     args: <controlnet_ckpt> <mask_list_json> <out_dir>
+# 7d. mask-conditioned generation, final configuration (cond_scale 3.0, autoguidance w=2.0)
+#     args: <ckpt> <mask_list> <out_dir> [cond_scale] [steps] [cond_scale_end] [bad_ckpt] [w]
 bash scripts/run_sample_controlnet.sh \
     outputs/controlnet_v6/controlnet_epoch100.pt \
     data/splits/controlnet_infer_test.json \
-    data/controlnet_gen_test/epoch100
+    data/controlnet_gen_test/v_final \
+    3.0 30 "" outputs/models_v5/ldm_unet_epoch200.pt 2.0
 
 # 7e. re-segment the generated volumes with FSL-FAST
-bash scripts/run_segment_generated.sh data/controlnet_gen_test/epoch100
+bash scripts/run_segment_generated.sh data/controlnet_gen_test/v_final
 
 # 7f. DSC between the conditioning mask and the re-segmented output
 python3 src/evaluation/controlnet_dsc.py \
-    --gen_dir data/controlnet_gen_test/epoch100 --tag test_epoch100
+    --gen_dir data/controlnet_gen_test/v_final --tag test_v_final
+
+# 7g. realism metrics (FID / MMD / MS-SSIM) against the real test volumes
+#     "cn" switches on the ControlNet file pattern and percentile normalisation
+bash scripts/run_eval.sh test data/controlnet_gen_test/v_final controlnet_v_final cn
 ```
 
 To measure the **ceiling** of the evaluation (see the methodological note above),
