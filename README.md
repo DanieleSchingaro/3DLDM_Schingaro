@@ -223,26 +223,9 @@ between the two static schedules: it recovers about half of the logit-normal
 sharpness advantage while keeping the uniform's perfect geometry (0% mis-positioned,
 verified with and without guidance).
 
-### Results — conditional generation (ControlNet, epoch 100)
+---
 
-The ControlNet is trained for 100 epochs on top of the frozen curriculum LDM
-(`models_v5/ldm_unet_epoch800.pt`). The checkpoint is selected by DSC on the
-**validation** split; the test split is used **once**, with the selected checkpoint,
-for the final number.
-
-| Split | n | Mean DSC | Generalised DSC | std | % of ceiling |
-|-------|--:|---------:|----------------:|----:|-------------:|
-| validation (checkpoint selection) | 100 | 0.677 | 0.643 | 0.023 | 86% |
-| **test (hold-out, final)** | **102** | **0.678** | **0.641** | 0.025 | **86%** |
-| *measurement ceiling* (real vs itself) | 10 | *0.788* | *0.747* | *0.020* | *100%* |
-
-Validation and test agree to within 0.0002, confirming that checkpoint selection did
-not overfit the validation split.
-
-**Checkpoint selection** (validation, DSC):
-
-| Checkpoint | Mean DSC | Generalised DSC |
-|------------|---------:|-------------### Results — conditional generation (ControlNet, v_final)
+### Results — conditional generation (ControlNet, v_final)
 
 The ControlNet is trained for 100 epochs on top of the frozen curriculum LDM. The checkpoint is
 selected by DSC on the **validation** split; inference parameters are then tuned on a 25-mask
