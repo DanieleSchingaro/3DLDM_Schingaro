@@ -1,6 +1,6 @@
 outs:
-- md5: 285f4227ed38a8c534a6d4c736d0e60e.dir
-  size: 979213742
-  nfiles: 306
+- md5: 8594b2e9ebba32cbd7429425a738e02f.dir
+  size: 1954319126
+  nfiles: 612
   hash: md5
   path: controlnet_gen_test
